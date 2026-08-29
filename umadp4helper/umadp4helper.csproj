@@ -3,12 +3,11 @@
   <PropertyGroup>
     <Version>0.0.0.1</Version>
     <!-- Manifest fields (see https://github.com/goatcorp/DalamudPackager/blob/827d88dc/DalamudPackager/DalamudPackager.cs#L420) -->
-    <Author>your name here</Author>
-    <Name>Sample Plugin</Name>
-    <Punchline>A short one-liner that shows up in /xlplugins.</Punchline>
-    <Description>A brief overview of what your plugin does, highlighting its key features.
-This is shown when the user expands the plugin entry in /xlplugins.</Description>
-    <RepoUrl>https://github.com/goatcorp/SamplePlugin</RepoUrl>
+    <Author>Frocodes</Author>
+    <Name>Helpfulp4</Name>
+    <Punchline>What worked for me hopefully works for you in DMU p4</Punchline>
+    <Description>Input helper for DMU p4</Description>
+    <RepoUrl>https://github.com/frocodes01/helpfulp4</RepoUrl>
     <Tags>sample;plugin;goats</Tags>
   </PropertyGroup>
 
