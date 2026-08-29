@@ -612,10 +612,8 @@ public class MainWindow : Window, IDisposable
 
                 DrawResultLine(
                     "Your accel is",
-                    GetAccelCallout(
-                        neo1Truth,
-                        neo1Duration,
-                        neo1AccelOverride));
+                    GetAccelCalloutForTiming(
+                        Duration.Short));
 
                 DrawResultLine(
                     "",
@@ -643,10 +641,8 @@ public class MainWindow : Window, IDisposable
 
                 DrawResultLine(
                     "Your accel is",
-                    GetAccelCallout(
-                        neo2Truth,
-                        neo2Duration,
-                        neo2AccelOverride));
+                    GetAccelCalloutForTiming(
+                        Duration.Long));
             },
             3);
 
@@ -886,37 +882,90 @@ public class MainWindow : Window, IDisposable
         return Truth.Unknown;
     }
 
-    private string GetAccelCallout(
-        Truth truth,
-        Duration duration,
-        AccelOverride accelOverride)
+    private (Truth truth, Duration duration) GetPersonalAccel()
     {
-        if (accelOverride == AccelOverride.None)
+        if (neo1AccelOverride != AccelOverride.None)
+        {
+            var duration =
+                neo1AccelOverride switch
+                {
+                    AccelOverride.Short =>
+                        Duration.Short,
+
+                    AccelOverride.Long =>
+                        Duration.Long,
+
+                    AccelOverride.Auto =>
+                        neo1Duration,
+
+                    _ =>
+                        Duration.Unknown
+                };
+
+            return (
+                neo1Truth,
+                duration);
+        }
+
+        if (neo2AccelOverride != AccelOverride.None)
+        {
+            var duration =
+                neo2AccelOverride switch
+                {
+                    AccelOverride.Short =>
+                        Duration.Short,
+
+                    AccelOverride.Long =>
+                        Duration.Long,
+
+                    AccelOverride.Auto =>
+                        neo2Duration,
+
+                    _ =>
+                        Duration.Unknown
+                };
+
+            return (
+                neo2Truth,
+                duration);
+        }
+
+        return (
+            Truth.Unknown,
+            Duration.Unknown);
+    }
+
+    private string GetAccelCalloutForTiming(
+        Duration playbackTiming)
+    {
+        var personalAccel =
+            GetPersonalAccel();
+
+        if (personalAccel.duration ==
+            Duration.Unknown)
         {
             return "No accel this set";
         }
 
-        var effectiveDuration =
-            accelOverride switch
-            {
-                AccelOverride.Short => Duration.Short,
-                AccelOverride.Long => Duration.Long,
-                _ => duration
-            };
+        if (personalAccel.duration !=
+            playbackTiming)
+        {
+            return "No accel this set";
+        }
 
-        if (truth == Truth.Unknown ||
-            effectiveDuration == Duration.Unknown)
+        if (personalAccel.truth ==
+            Truth.Unknown)
         {
             return "?";
         }
 
         var timing =
-            effectiveDuration == Duration.Short
+            playbackTiming == Duration.Short
                 ? "1st"
                 : "2nd";
 
         var mechanic =
-            truth == Truth.Real
+            personalAccel.truth == Truth.Real
                 ? "STILLNESS"
                 : "MOTION";
 
