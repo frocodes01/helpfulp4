@@ -274,6 +274,7 @@ public class MainWindow : Window, IDisposable
         DrawDurationButtons(
             title,
             ref duration,
+            ref accelOverride,
             isNeo1);
 
         DrawLabel("Accel");
@@ -420,6 +421,7 @@ public class MainWindow : Window, IDisposable
     private void DrawDurationButtons(
         string title,
         ref Duration duration,
+        ref AccelOverride accelOverride,
         bool isNeo1)
     {
         if (DrawChoiceButton(
@@ -427,14 +429,17 @@ public class MainWindow : Window, IDisposable
             duration == Duration.Short))
         {
             duration = Duration.Short;
+            accelOverride = AccelOverride.Auto;
 
             if (isNeo1)
             {
                 neo2Duration = Duration.Long;
+                neo2AccelOverride = AccelOverride.None;
             }
             else
             {
                 neo1Duration = Duration.Long;
+                neo1AccelOverride = AccelOverride.None;
             }
         }
 
@@ -445,14 +450,17 @@ public class MainWindow : Window, IDisposable
             duration == Duration.Long))
         {
             duration = Duration.Long;
+            accelOverride = AccelOverride.Auto;
 
             if (isNeo1)
             {
                 neo2Duration = Duration.Short;
+                neo2AccelOverride = AccelOverride.None;
             }
             else
             {
                 neo1Duration = Duration.Short;
+                neo1AccelOverride = AccelOverride.None;
             }
         }
     }
@@ -606,7 +614,8 @@ public class MainWindow : Window, IDisposable
                     "Your accel is",
                     GetAccelCallout(
                         neo1Truth,
-                        GetEffectiveAccelDuration(1)));
+                        neo1Duration,
+                        neo1AccelOverride));
 
                 DrawResultLine(
                     "",
@@ -636,7 +645,8 @@ public class MainWindow : Window, IDisposable
                     "Your accel is",
                     GetAccelCallout(
                         neo2Truth,
-                        GetEffectiveAccelDuration(2)));
+                        neo2Duration,
+                        neo2AccelOverride));
             },
             3);
 
@@ -876,47 +886,32 @@ public class MainWindow : Window, IDisposable
         return Truth.Unknown;
     }
 
-    private Duration GetEffectiveAccelDuration(
-        int neoNumber)
-    {
-        var duration =
-            neoNumber == 1
-                ? neo1Duration
-                : neo2Duration;
-
-        var accelOverride =
-            neoNumber == 1
-                ? neo1AccelOverride
-                : neo2AccelOverride;
-
-        return accelOverride switch
-        {
-            AccelOverride.Short =>
-                Duration.Short,
-
-            AccelOverride.Long =>
-                Duration.Long,
-
-            AccelOverride.None =>
-                Duration.Unknown,
-
-            _ =>
-                duration
-        };
-    }
-
     private string GetAccelCallout(
         Truth truth,
-        Duration duration)
+        Duration duration,
+        AccelOverride accelOverride)
     {
+        if (accelOverride == AccelOverride.None)
+        {
+            return "No accel this set";
+        }
+
+        var effectiveDuration =
+            accelOverride switch
+            {
+                AccelOverride.Short => Duration.Short,
+                AccelOverride.Long => Duration.Long,
+                _ => duration
+            };
+
         if (truth == Truth.Unknown ||
-            duration == Duration.Unknown)
+            effectiveDuration == Duration.Unknown)
         {
             return "?";
         }
 
         var timing =
-            duration == Duration.Short
+            effectiveDuration == Duration.Short
                 ? "1st"
                 : "2nd";
 
