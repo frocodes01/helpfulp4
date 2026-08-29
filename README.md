@@ -1,78 +1,219 @@
-> ⚠️ **Don't click Fork!**
-> 
-> This is a GitHub Template repo. If you want to use this for a plugin, [use this template][new-repo] to make a new repo!
->
-> ![image](https://github.com/goatcorp/SamplePlugin/assets/16760685/d9732094-e1ed-4769-a70b-58ed2b92580c)
+# UMAD P4 Helper
 
-# SamplePlugin
+An in-game Dalamud helper for **FFXIV UMAD Phase 4**.
 
-[![Use This Template badge](https://img.shields.io/badge/Use%20This%20Template-0?logo=github&labelColor=grey)][new-repo]
+This plugin recreates and streamlines the decision-making flow of the WTFDIG P4 helper inside Final Fantasy XIV, with a focus on quick manual inputs and clear text playback.
 
+## Features
 
-Simple example plugin for Dalamud.
+- `/p4helper` command to open the helper window
+- Manual **Real / Fake** inputs for Neo Exdeath, Chaos, Mana Charge, and Mana Release
+- Clear selected-state highlighting
+  - **Real:** dark navy with white text
+  - **Fake:** red with yellow text
+- Responsive layout
+  - Wide window: two-column layout
+  - Narrow window: single-column layout with scrolling
+- One-click **Undo** for the last input/action
+- **Reset** button
+- Automatic paired inputs where the mechanic guarantees the opposite value
+- Text-only playback designed for use during progression
 
-This is not designed to be the simplest possible example, but it is also not designed to cover everything you might want to do. For more detailed questions, come ask in [the Discord](https://discord.gg/holdshift).
+## Current Logic
 
-## Main Points
+### Neo Exdeath
 
-* Simple functional plugin
-  * Slash command
-  * Main UI
-  * Settings UI
-  * Image loading
-  * Plugin json
-* Simple, slightly-improved plugin configuration handling
-* Project organization
-  * Copies all necessary plugin files to the output directory
-    * Does not copy dependencies that are provided by dalamud
-    * Output directory can be zipped directly and have exactly what is required
-  * Hides data files from visual studio to reduce clutter
-    * Also allows having data files in different paths than VS would usually allow if done in the IDE directly
+Each Neo Exdeath cast can independently be Real or Fake.
 
+| Cast | Spread Callout | Gaze |
+| --- | --- | --- |
+| Real | LIGHTNING | LOOK AWAY |
+| Fake | WATER | LOOK IN |
 
-The intention is less that any of this is used directly in other projects, and more to show how similar things can be done.
+The spread callout identifies **which element is spreading**.  
+For example, if the helper says `LIGHTNING`, players with Lightning spread while the opposite element stacks.
 
-## How To Use
+### Water / Lightning Timing
 
-### Getting Started
+Water/Lightning timers are paired between the two Neo Exdeath sets.
 
-To begin, [clone this template repository][new-repo] to your own GitHub account. This will automatically bring in everything you need to get a jumpstart on development. You do not need to fork this repository unless you intend to contribute modifications to it.
+- Neo #1 Short → Neo #2 Long
+- Neo #1 Long → Neo #2 Short
+- Neo #2 Short → Neo #1 Long
+- Neo #2 Long → Neo #1 Short
 
-Be sure to also check out the [Dalamud Developer Docs][dalamud-docs] for helpful information about building your own plugin. The Developer Docs includes helpful information about all sorts of things, including [how to submit][submit] your newly-created plugin to the official repository. Assuming you use this template repository, the provided project build configuration and license are already chosen to make everything a breeze.
+Selecting one automatically sets the other.
 
-[new-repo]: https://github.com/new?template_name=SamplePlugin&template_owner=goatcorp
-[dalamud-docs]: https://dalamud.dev
-[submit]: https://dalamud.dev/plugin-publishing/submission
+### Acceleration
 
-### Prerequisites
+Acceleration is entered **manually** and is independent of Water/Lightning timing.
 
-SamplePlugin assumes all the following prerequisites are met:
+Available inputs:
 
-* XIVLauncher, FINAL FANTASY XIV, and Dalamud have all been installed and the game has been run with Dalamud at least once.
-* XIVLauncher is installed to its default directories and configurations.
-  * If a custom path is required for Dalamud's dev directory, it must be set with the `DALAMUD_HOME` environment variable.
-* A .NET Core 8 SDK has been installed and configured, or is otherwise available. (In most cases, the IDE will take care of this.)
+- Short
+- Long
+- None
 
-### Building
+Only one Neo set should contain your acceleration. Selecting Short or Long on one Neo automatically sets the other Neo's acceleration to `None`.
 
-1. Open up `SamplePlugin.sln` in your C# editor of choice (likely [Visual Studio](https://visualstudio.microsoft.com) or [JetBrains Rider](https://www.jetbrains.com/rider/)).
-2. Build the solution. By default, this will build a `Debug` build, but you can switch to `Release` in your IDE.
-3. The resulting plugin can be found at `SamplePlugin/bin/x64/Debug/SamplePlugin.dll` (or `Release` if appropriate.)
+Acceleration playback:
 
-### Activating in-game
+| Accel Timing | Neo Cast | Playback |
+| --- | --- | --- |
+| Short | Real | 1st STILLNESS |
+| Short | Fake | 1st MOTION |
+| Long | Real | 2nd STILLNESS |
+| Long | Fake | 2nd MOTION |
+| None | — | No accel this set |
 
-1. Launch the game and use `/xlsettings` in chat or `xlsettings` in the Dalamud Console to open up the Dalamud settings.
-    * In here, go to `Experimental`, and add the full path to the `SamplePlugin.dll` to the list of Dev Plugin Locations.
-2. Next, use `/xlplugins` (chat) or `xlplugins` (console) to open up the Plugin Installer.
-    * In here, go to `Dev Tools > Installed Dev Plugins`, and the `SamplePlugin` should be visible. Enable it.
-3. You should now be able to use `/pmycommand` (chat) or `pmycommand` (console)!
+### Chaos
 
-Note that you only need to add it to the Dev Plugin Locations once (Step 1); it is preserved afterwards. You can disable, enable, or load your plugin on startup through the Plugin Installer.
+There is always one Fire/Inferno and one Water/Tsunami.
 
-### Reconfiguring for your own uses
+Selecting Fire or Water on one Chaos automatically sets the opposite element on the other Chaos.
 
-Replace all references to `SamplePlugin` in all the files and filenames with your desired name, then start building the plugin of your dreams. You'll figure it out 😁
+#### Inferno
 
-Dalamud will load the JSON file (by default, `SamplePlugin/SamplePlugin.json`) next to your DLL and use it for metadata, including the description for your plugin in the Plugin Installer. Make sure to update this with information relevant to _your_ plugin!
+| Cast | Result |
+| --- | --- |
+| Real | SPREAD |
+| Fake | STAY |
 
-All participation in this repository is governed by our [Code of Conduct](https://dalamud.dev/code-of-conduct). If you used AI tooling at any point, review the [AI Usage Policy](https://dalamud.dev/plugin-publishing/ai-policy) and disclose your level of AI use. Entirely AI-generated submissions will be rejected, and undisclosed AI use may result in a ban.
+#### Tsunami
+
+| Cast | Result |
+| --- | --- |
+| Real | STAY |
+| Fake | SPREAD |
+
+The playback displays **Inferno first, then Tsunami**, regardless of whether they were Chaos #1 or Chaos #2.
+
+### Mana Charge / Mana Release
+
+Mana Charge order is fixed:
+
+1. Lightning
+2. Blizzard
+
+The final truth is determined by comparing the Charge and Release values.
+
+| Charge | Release | Final |
+| --- | --- | --- |
+| Real | Real | Real |
+| Real | Fake | Fake |
+| Fake | Real | Fake |
+| Fake | Fake | Real |
+
+In other words:
+
+- Same truth → Real
+- Different truth → Fake
+
+### Final Mana Callout
+
+The plugin converts the resolved Lightning + Blizzard states into a movement callout:
+
+| Lightning | Blizzard | Final Mana |
+| --- | --- | --- |
+| Real | Real | OUT OF BOTH |
+| Fake | Fake | IN BOTH |
+| Real | Fake | IN BLIZZARD |
+| Fake | Real | IN LIGHTNING |
+
+Because Mana Release resolves alongside Tsunami, the final call also includes the Tsunami movement:
+
+- Tsunami `STAY` → `DONUT`
+- Tsunami `SPREAD` → `CHARIOT`
+
+Examples:
+
+```text
+Final Mana: OUT OF BOTH + DONUT
+Final Mana: IN BOTH + CHARIOT
+Final Mana: IN BLIZZARD + DONUT
+Final Mana: IN LIGHTNING + CHARIOT
+```
+
+## Installation for Development
+
+This plugin is currently intended to be loaded as a Dalamud development plugin.
+
+### Requirements
+
+- Final Fantasy XIV
+- XIVLauncher / Dalamud
+- .NET SDK
+- VS Code or Visual Studio
+- Dalamud SamplePlugin development environment
+
+### Build
+
+From the plugin project directory:
+
+```powershell
+dotnet build
+```
+
+The compiled DLL will be created under the project's `bin` directory.
+
+Example:
+
+```text
+UmadP4Helper\bin\Debug\UmadP4Helper.dll
+```
+
+### Load in Dalamud
+
+1. Launch FFXIV with Dalamud.
+2. Open:
+   ```text
+   /xlsettings
+   ```
+3. Go to **Experimental**.
+4. Add the compiled DLL under **Dev Plugin Locations**.
+5. Open:
+   ```text
+   /xlplugins
+   ```
+6. Enable the development plugin.
+
+## Usage
+
+Open the helper with:
+
+```text
+/p4helper
+```
+
+Enter mechanic information as it appears during Phase 4.
+
+The right side of the window displays the resolved playback in mechanic order.
+
+Use **Undo** if the previous input was entered incorrectly.
+
+Use **Reset** before starting a new pull.
+
+## Project Status
+
+Current version is a manual, text-only helper.
+
+Possible future improvements:
+
+- Better playback color-coding
+- Configuration options
+- Saved UI preferences
+- Compact raid mode
+- Additional input validation
+- Automatic mechanic detection if desired later
+
+## Credits
+
+This project was inspired by the P4 Helper available at:
+
+`https://wtfdig.info/tools/p4-helper`
+
+The goal of this plugin is to provide a streamlined in-game workflow with custom playback wording and reduced input friction.
+
+## Disclaimer
+
+This is an unofficial community tool and is not affiliated with Square Enix, XIVLauncher, Dalamud, or WTFDIG.
