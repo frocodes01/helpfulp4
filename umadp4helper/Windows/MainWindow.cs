@@ -22,9 +22,9 @@ public class MainWindow : Window, IDisposable
         Long
     }
 
-    private enum AccelOverride
+    private enum AccelTiming
     {
-        Auto,
+        Unknown,
         Short,
         Long,
         None
@@ -40,7 +40,7 @@ public class MainWindow : Window, IDisposable
     // Neo #1
     private Truth neo1Truth = Truth.Unknown;
     private Duration neo1Duration = Duration.Unknown;
-    private AccelOverride neo1AccelOverride = AccelOverride.Auto;
+    private AccelTiming neo1Accel = AccelTiming.Unknown;
 
     // Chaos #1
     private Truth chaos1Truth = Truth.Unknown;
@@ -49,7 +49,7 @@ public class MainWindow : Window, IDisposable
     // Neo #2
     private Truth neo2Truth = Truth.Unknown;
     private Duration neo2Duration = Duration.Unknown;
-    private AccelOverride neo2AccelOverride = AccelOverride.Auto;
+    private AccelTiming neo2Accel = AccelTiming.Unknown;
 
     // Chaos #2
     private Truth chaos2Truth = Truth.Unknown;
@@ -62,7 +62,10 @@ public class MainWindow : Window, IDisposable
     private Truth manaReleaseLightning = Truth.Unknown;
     private Truth manaReleaseIce = Truth.Unknown;
 
-    // Colours
+    // ============================================================
+    // COLOURS
+    // ============================================================
+
     private static readonly Vector4 RealSelected =
         new(0.04f, 0.12f, 0.24f, 1.00f);
 
@@ -99,6 +102,10 @@ public class MainWindow : Window, IDisposable
     private static readonly Vector4 CardBorder =
         new(0.22f, 0.31f, 0.43f, 1.00f);
 
+    // ============================================================
+    // WINDOW
+    // ============================================================
+
     public MainWindow(Plugin plugin, string goatImagePath)
         : base("UMAD P4 Helper##P4HelperMain")
     {
@@ -121,10 +128,12 @@ public class MainWindow : Window, IDisposable
         ImGui.Separator();
         ImGui.Spacing();
 
-        var availableWidth = ImGui.GetContentRegionAvail().X;
+        var availableWidth =
+            ImGui.GetContentRegionAvail().X;
 
         var useTwoColumns =
-            availableWidth >= 720 * ImGuiHelpers.GlobalScale;
+            availableWidth >=
+            720 * ImGuiHelpers.GlobalScale;
 
         if (useTwoColumns)
         {
@@ -224,7 +233,7 @@ public class MainWindow : Window, IDisposable
             "Neo Exdeath #1",
             ref neo1Truth,
             ref neo1Duration,
-            ref neo1AccelOverride,
+            ref neo1Accel,
             true);
 
         SectionBreak();
@@ -241,7 +250,7 @@ public class MainWindow : Window, IDisposable
             "Neo Exdeath #2",
             ref neo2Truth,
             ref neo2Duration,
-            ref neo2AccelOverride,
+            ref neo2Accel,
             false);
 
         SectionBreak();
@@ -257,7 +266,7 @@ public class MainWindow : Window, IDisposable
         string title,
         ref Truth truth,
         ref Duration duration,
-        ref AccelOverride accelOverride,
+        ref AccelTiming accel,
         bool isNeo1)
     {
         ImGui.Text(title);
@@ -274,15 +283,13 @@ public class MainWindow : Window, IDisposable
         DrawDurationButtons(
             title,
             ref duration,
-            ref accelOverride,
             isNeo1);
 
         DrawLabel("Accel");
 
         DrawAccelButtons(
             title,
-            ref accelOverride,
-            duration);
+            ref accel);
     }
 
     private void DrawChaosSection(
@@ -318,22 +325,16 @@ public class MainWindow : Window, IDisposable
     }
 
     // ============================================================
-    // BUTTONS
+    // REAL / FAKE BUTTONS
     // ============================================================
 
     private void DrawTruthButtons(
         string id,
         ref Truth value)
     {
-        var realSelected =
-            value == Truth.Real;
-
-        var fakeSelected =
-            value == Truth.Fake;
-
         if (DrawRealButton(
             id,
-            realSelected))
+            value == Truth.Real))
         {
             value = Truth.Real;
         }
@@ -342,7 +343,7 @@ public class MainWindow : Window, IDisposable
 
         if (DrawFakeButton(
             id,
-            fakeSelected))
+            value == Truth.Fake))
         {
             value = Truth.Fake;
         }
@@ -418,10 +419,13 @@ public class MainWindow : Window, IDisposable
         return pressed;
     }
 
+    // ============================================================
+    // WATER / LIGHTNING DURATION
+    // ============================================================
+
     private void DrawDurationButtons(
         string title,
         ref Duration duration,
-        ref AccelOverride accelOverride,
         bool isNeo1)
     {
         if (DrawChoiceButton(
@@ -429,17 +433,17 @@ public class MainWindow : Window, IDisposable
             duration == Duration.Short))
         {
             duration = Duration.Short;
-            accelOverride = AccelOverride.Auto;
 
+            // W/L durations are paired.
             if (isNeo1)
             {
-                neo2Duration = Duration.Long;
-                neo2AccelOverride = AccelOverride.None;
+                neo2Duration =
+                    Duration.Long;
             }
             else
             {
-                neo1Duration = Duration.Long;
-                neo1AccelOverride = AccelOverride.None;
+                neo1Duration =
+                    Duration.Long;
             }
         }
 
@@ -450,72 +454,61 @@ public class MainWindow : Window, IDisposable
             duration == Duration.Long))
         {
             duration = Duration.Long;
-            accelOverride = AccelOverride.Auto;
 
+            // W/L durations are paired.
             if (isNeo1)
             {
-                neo2Duration = Duration.Short;
-                neo2AccelOverride = AccelOverride.None;
+                neo2Duration =
+                    Duration.Short;
             }
             else
             {
-                neo1Duration = Duration.Short;
-                neo1AccelOverride = AccelOverride.None;
+                neo1Duration =
+                    Duration.Short;
             }
         }
     }
 
+    // ============================================================
+    // ACCEL
+    // ============================================================
+
     private void DrawAccelButtons(
         string title,
-        ref AccelOverride accelOverride,
-        Duration automaticDuration)
+        ref AccelTiming accel)
     {
-        var autoLabel =
-            automaticDuration switch
-            {
-                Duration.Short => "Auto: Short",
-                Duration.Long => "Auto: Long",
-                _ => "Auto"
-            };
-
-        if (DrawChoiceButton(
-            $"{autoLabel}##{title}_Auto",
-            accelOverride == AccelOverride.Auto))
-        {
-            accelOverride =
-                AccelOverride.Auto;
-        }
-
-        ImGui.SameLine();
-
         if (DrawChoiceButton(
             $"Short##{title}_AccelShort",
-            accelOverride == AccelOverride.Short))
+            accel == AccelTiming.Short))
         {
-            accelOverride =
-                AccelOverride.Short;
+            accel =
+                AccelTiming.Short;
         }
 
         ImGui.SameLine();
 
         if (DrawChoiceButton(
             $"Long##{title}_AccelLong",
-            accelOverride == AccelOverride.Long))
+            accel == AccelTiming.Long))
         {
-            accelOverride =
-                AccelOverride.Long;
+            accel =
+                AccelTiming.Long;
         }
 
         ImGui.SameLine();
 
         if (DrawChoiceButton(
             $"None##{title}_AccelNone",
-            accelOverride == AccelOverride.None))
+            accel == AccelTiming.None))
         {
-            accelOverride =
-                AccelOverride.None;
+            accel =
+                AccelTiming.None;
         }
     }
+
+    // ============================================================
+    // CHAOS ELEMENT BUTTONS
+    // ============================================================
 
     private void DrawChaosElementButtons(
         string title,
@@ -563,6 +556,10 @@ public class MainWindow : Window, IDisposable
         }
     }
 
+    // ============================================================
+    // GENERIC SELECTED BUTTON
+    // ============================================================
+
     private bool DrawChoiceButton(
         string label,
         bool selected)
@@ -596,11 +593,15 @@ public class MainWindow : Window, IDisposable
     }
 
     // ============================================================
-    // PLAYBACK SIDE
+    // PLAYBACK
     // ============================================================
 
     private void DrawResults()
     {
+        // --------------------------------------------------------
+        // FIRST RESOLUTION
+        // --------------------------------------------------------
+
         DrawOutputCard(
             "FirstNeoResults",
             () =>
@@ -613,7 +614,7 @@ public class MainWindow : Window, IDisposable
                 DrawResultLine(
                     "Your accel is",
                     GetAccelCalloutForTiming(
-                        Duration.Short));
+                        AccelTiming.Short));
 
                 DrawResultLine(
                     "",
@@ -621,10 +622,18 @@ public class MainWindow : Window, IDisposable
             },
             3);
 
+        // --------------------------------------------------------
+        // MANA CHARGE: LIGHTNING
+        // --------------------------------------------------------
+
         DrawManaInputBreak(
             "Mana Charge: Lightning",
             "ManaChargeLightning",
             ref manaChargeLightning);
+
+        // --------------------------------------------------------
+        // SECOND RESOLUTION
+        // --------------------------------------------------------
 
         DrawOutputCard(
             "MiddleResults",
@@ -642,14 +651,22 @@ public class MainWindow : Window, IDisposable
                 DrawResultLine(
                     "Your accel is",
                     GetAccelCalloutForTiming(
-                        Duration.Long));
+                        AccelTiming.Long));
             },
             3);
+
+        // --------------------------------------------------------
+        // MANA CHARGE: BLIZZARD
+        // --------------------------------------------------------
 
         DrawManaInputBreak(
             "Mana Charge: Blizzard",
             "ManaChargeIce",
             ref manaChargeIce);
+
+        // --------------------------------------------------------
+        // SECOND SHRIEKS / TSUNAMI
+        // --------------------------------------------------------
 
         DrawOutputCard(
             "SecondNeoResults",
@@ -664,6 +681,10 @@ public class MainWindow : Window, IDisposable
                     GetTsunamiCallout());
             },
             2);
+
+        // --------------------------------------------------------
+        // MANA RELEASE
+        // --------------------------------------------------------
 
         DrawManaInputBreak(
             "Mana Release: Lightning",
@@ -684,6 +705,10 @@ public class MainWindow : Window, IDisposable
             ResolveMana(
                 manaChargeIce,
                 manaReleaseIce);
+
+        // --------------------------------------------------------
+        // FINAL MANA RESULT
+        // --------------------------------------------------------
 
         DrawOutputCard(
             "FinalManaResults",
@@ -800,7 +825,7 @@ public class MainWindow : Window, IDisposable
     }
 
     // ============================================================
-    // CALCULATOR
+    // NEO CALCULATIONS
     // ============================================================
 
     private string GetSpreadCallout(
@@ -808,9 +833,14 @@ public class MainWindow : Window, IDisposable
     {
         return truth switch
         {
-            Truth.Real => "LIGHTNING",
-            Truth.Fake => "WATER",
-            _ => "?"
+            Truth.Real =>
+                "LIGHTNING",
+
+            Truth.Fake =>
+                "WATER",
+
+            _ =>
+                "?"
         };
     }
 
@@ -819,11 +849,80 @@ public class MainWindow : Window, IDisposable
     {
         return truth switch
         {
-            Truth.Real => "LOOK AWAY",
-            Truth.Fake => "LOOK IN",
-            _ => "?"
+            Truth.Real =>
+                "LOOK AWAY",
+
+            Truth.Fake =>
+                "LOOK IN",
+
+            _ =>
+                "?"
         };
     }
+
+    // ============================================================
+    // ACCEL CALCULATIONS
+    // ============================================================
+
+    private string GetAccelCalloutForTiming(
+        AccelTiming timing)
+    {
+        var neo1Matches =
+            neo1Accel == timing;
+
+        var neo2Matches =
+            neo2Accel == timing;
+
+        // This should normally never happen,
+        // but protects us from accidentally entering
+        // the same accel timing on both Neo sets.
+        if (neo1Matches && neo2Matches)
+        {
+            return "CHECK ACCEL INPUTS";
+        }
+
+        if (neo1Matches)
+        {
+            return BuildAccelCallout(
+                neo1Truth,
+                timing);
+        }
+
+        if (neo2Matches)
+        {
+            return BuildAccelCallout(
+                neo2Truth,
+                timing);
+        }
+
+        return "No accel this set";
+    }
+
+    private string BuildAccelCallout(
+        Truth truth,
+        AccelTiming timing)
+    {
+        if (truth == Truth.Unknown)
+        {
+            return "?";
+        }
+
+        var timingText =
+            timing == AccelTiming.Short
+                ? "1st"
+                : "2nd";
+
+        var mechanic =
+            truth == Truth.Real
+                ? "STILLNESS"
+                : "MOTION";
+
+        return $"{timingText} {mechanic}";
+    }
+
+    // ============================================================
+    // CHAOS CALCULATIONS
+    // ============================================================
 
     private string GetInfernoCallout()
     {
@@ -833,9 +932,14 @@ public class MainWindow : Window, IDisposable
 
         return truth switch
         {
-            Truth.Real => "SPREAD",
-            Truth.Fake => "STAY",
-            _ => "?"
+            Truth.Real =>
+                "SPREAD",
+
+            Truth.Fake =>
+                "STAY",
+
+            _ =>
+                "?"
         };
     }
 
@@ -847,9 +951,14 @@ public class MainWindow : Window, IDisposable
 
         return truth switch
         {
-            Truth.Real => "STAY",
-            Truth.Fake => "SPREAD",
-            _ => "?"
+            Truth.Real =>
+                "STAY",
+
+            Truth.Fake =>
+                "SPREAD",
+
+            _ =>
+                "?"
         };
     }
 
@@ -860,9 +969,14 @@ public class MainWindow : Window, IDisposable
 
         return tsunamiCallout switch
         {
-            "STAY" => "DONUT",
-            "SPREAD" => "CHARIOT",
-            _ => "?"
+            "STAY" =>
+                "DONUT",
+
+            "SPREAD" =>
+                "CHARIOT",
+
+            _ =>
+                "?"
         };
     }
 
@@ -882,95 +996,9 @@ public class MainWindow : Window, IDisposable
         return Truth.Unknown;
     }
 
-    private (Truth truth, Duration duration) GetPersonalAccel()
-    {
-        if (neo1AccelOverride != AccelOverride.None)
-        {
-            var duration =
-                neo1AccelOverride switch
-                {
-                    AccelOverride.Short =>
-                        Duration.Short,
-
-                    AccelOverride.Long =>
-                        Duration.Long,
-
-                    AccelOverride.Auto =>
-                        neo1Duration,
-
-                    _ =>
-                        Duration.Unknown
-                };
-
-            return (
-                neo1Truth,
-                duration);
-        }
-
-        if (neo2AccelOverride != AccelOverride.None)
-        {
-            var duration =
-                neo2AccelOverride switch
-                {
-                    AccelOverride.Short =>
-                        Duration.Short,
-
-                    AccelOverride.Long =>
-                        Duration.Long,
-
-                    AccelOverride.Auto =>
-                        neo2Duration,
-
-                    _ =>
-                        Duration.Unknown
-                };
-
-            return (
-                neo2Truth,
-                duration);
-        }
-
-        return (
-            Truth.Unknown,
-            Duration.Unknown);
-    }
-
-    private string GetAccelCalloutForTiming(
-        Duration playbackTiming)
-    {
-        var personalAccel =
-            GetPersonalAccel();
-
-        if (personalAccel.duration ==
-            Duration.Unknown)
-        {
-            return "No accel this set";
-        }
-
-        if (personalAccel.duration !=
-            playbackTiming)
-        {
-            return "No accel this set";
-        }
-
-        if (personalAccel.truth ==
-            Truth.Unknown)
-        {
-            return "?";
-        }
-
-        var timing =
-            playbackTiming == Duration.Short
-                ? "1st"
-                : "2nd";
-
-        var mechanic =
-            personalAccel.truth == Truth.Real
-                ? "STILLNESS"
-                : "MOTION";
-
-        return $"{timing} {mechanic}";
-    }
+    // ============================================================
+    // MANA CALCULATIONS
+    // ============================================================
 
     private Truth ResolveMana(
         Truth charge,
@@ -1023,9 +1051,14 @@ public class MainWindow : Window, IDisposable
     {
         return truth switch
         {
-            Truth.Real => "REAL",
-            Truth.Fake => "FAKE",
-            _ => "?"
+            Truth.Real =>
+                "REAL",
+
+            Truth.Fake =>
+                "FAKE",
+
+            _ =>
+                "?"
         };
     }
 
@@ -1041,8 +1074,8 @@ public class MainWindow : Window, IDisposable
         neo1Duration =
             Duration.Unknown;
 
-        neo1AccelOverride =
-            AccelOverride.Auto;
+        neo1Accel =
+            AccelTiming.Unknown;
 
         chaos1Truth =
             Truth.Unknown;
@@ -1056,8 +1089,8 @@ public class MainWindow : Window, IDisposable
         neo2Duration =
             Duration.Unknown;
 
-        neo2AccelOverride =
-            AccelOverride.Auto;
+        neo2Accel =
+            AccelTiming.Unknown;
 
         chaos2Truth =
             Truth.Unknown;
