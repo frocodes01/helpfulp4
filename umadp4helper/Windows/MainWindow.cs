@@ -37,6 +37,10 @@ public class MainWindow : Window, IDisposable
         Water
     }
 
+    // ============================================================
+    // CURRENT STATE
+    // ============================================================
+
     // Neo #1
     private Truth neo1Truth = Truth.Unknown;
     private Duration neo1Duration = Duration.Unknown;
@@ -61,6 +65,92 @@ public class MainWindow : Window, IDisposable
 
     private Truth manaReleaseLightning = Truth.Unknown;
     private Truth manaReleaseIce = Truth.Unknown;
+
+    // ============================================================
+    // UNDO STATE
+    // ============================================================
+
+    private sealed class StateSnapshot
+    {
+        public Truth Neo1Truth;
+        public Duration Neo1Duration;
+        public AccelTiming Neo1Accel;
+
+        public Truth Chaos1Truth;
+        public ChaosElement Chaos1Element;
+
+        public Truth Neo2Truth;
+        public Duration Neo2Duration;
+        public AccelTiming Neo2Accel;
+
+        public Truth Chaos2Truth;
+        public ChaosElement Chaos2Element;
+
+        public Truth ManaChargeLightning;
+        public Truth ManaChargeIce;
+
+        public Truth ManaReleaseLightning;
+        public Truth ManaReleaseIce;
+    }
+
+    private StateSnapshot? undoState;
+
+    private void SaveUndoState()
+    {
+        undoState = new StateSnapshot
+        {
+            Neo1Truth = neo1Truth,
+            Neo1Duration = neo1Duration,
+            Neo1Accel = neo1Accel,
+
+            Chaos1Truth = chaos1Truth,
+            Chaos1Element = chaos1Element,
+
+            Neo2Truth = neo2Truth,
+            Neo2Duration = neo2Duration,
+            Neo2Accel = neo2Accel,
+
+            Chaos2Truth = chaos2Truth,
+            Chaos2Element = chaos2Element,
+
+            ManaChargeLightning = manaChargeLightning,
+            ManaChargeIce = manaChargeIce,
+
+            ManaReleaseLightning = manaReleaseLightning,
+            ManaReleaseIce = manaReleaseIce
+        };
+    }
+
+    private void UndoLastAction()
+    {
+        if (undoState == null)
+        {
+            return;
+        }
+
+        neo1Truth = undoState.Neo1Truth;
+        neo1Duration = undoState.Neo1Duration;
+        neo1Accel = undoState.Neo1Accel;
+
+        chaos1Truth = undoState.Chaos1Truth;
+        chaos1Element = undoState.Chaos1Element;
+
+        neo2Truth = undoState.Neo2Truth;
+        neo2Duration = undoState.Neo2Duration;
+        neo2Accel = undoState.Neo2Accel;
+
+        chaos2Truth = undoState.Chaos2Truth;
+        chaos2Element = undoState.Chaos2Element;
+
+        manaChargeLightning = undoState.ManaChargeLightning;
+        manaChargeIce = undoState.ManaChargeIce;
+
+        manaReleaseLightning = undoState.ManaReleaseLightning;
+        manaReleaseIce = undoState.ManaReleaseIce;
+
+        // One-level undo.
+        undoState = null;
+    }
 
     // ============================================================
     // COLOURS
@@ -149,27 +239,49 @@ public class MainWindow : Window, IDisposable
     {
         ImGui.Text("UMAD P4 Helper");
 
+        // Undo
         ImGui.SameLine();
+
+        var undoWidth =
+            80 * ImGuiHelpers.GlobalScale;
 
         var resetWidth =
             80 * ImGuiHelpers.GlobalScale;
 
+        var spacing =
+            8 * ImGuiHelpers.GlobalScale;
+
         var available =
             ImGui.GetContentRegionAvail().X;
 
-        if (available > resetWidth)
+        var totalButtonWidth =
+            undoWidth + resetWidth + spacing;
+
+        if (available > totalButtonWidth)
         {
             ImGui.SetCursorPosX(
                 ImGui.GetCursorPosX()
                 + available
-                - resetWidth);
+                - totalButtonWidth);
         }
+
+        if (ImGui.Button(
+            undoState != null
+                ? "Undo"
+                : "Undo",
+            new Vector2(undoWidth, 0)))
+        {
+            UndoLastAction();
+        }
+
+        ImGui.SameLine();
 
         if (ImGui.Button(
             "Reset",
             new Vector2(resetWidth, 0)))
         {
-            ResetAll();
+            SaveUndoState();
+            ResetAll(false);
         }
     }
 
@@ -289,7 +401,8 @@ public class MainWindow : Window, IDisposable
 
         DrawAccelButtons(
             title,
-            ref accel);
+            ref accel,
+            isNeo1);
     }
 
     private void DrawChaosSection(
@@ -336,7 +449,11 @@ public class MainWindow : Window, IDisposable
             id,
             value == Truth.Real))
         {
-            value = Truth.Real;
+            if (value != Truth.Real)
+            {
+                SaveUndoState();
+                value = Truth.Real;
+            }
         }
 
         ImGui.SameLine();
@@ -345,7 +462,11 @@ public class MainWindow : Window, IDisposable
             id,
             value == Truth.Fake))
         {
-            value = Truth.Fake;
+            if (value != Truth.Fake)
+            {
+                SaveUndoState();
+                value = Truth.Fake;
+            }
         }
     }
 
@@ -432,18 +553,23 @@ public class MainWindow : Window, IDisposable
             $"Short##{title}_Short",
             duration == Duration.Short))
         {
-            duration = Duration.Short;
+            if (duration != Duration.Short)
+            {
+                SaveUndoState();
 
-            // W/L durations are paired.
-            if (isNeo1)
-            {
-                neo2Duration =
-                    Duration.Long;
-            }
-            else
-            {
-                neo1Duration =
-                    Duration.Long;
+                duration =
+                    Duration.Short;
+
+                if (isNeo1)
+                {
+                    neo2Duration =
+                        Duration.Long;
+                }
+                else
+                {
+                    neo1Duration =
+                        Duration.Long;
+                }
             }
         }
 
@@ -453,18 +579,23 @@ public class MainWindow : Window, IDisposable
             $"Long##{title}_Long",
             duration == Duration.Long))
         {
-            duration = Duration.Long;
+            if (duration != Duration.Long)
+            {
+                SaveUndoState();
 
-            // W/L durations are paired.
-            if (isNeo1)
-            {
-                neo2Duration =
-                    Duration.Short;
-            }
-            else
-            {
-                neo1Duration =
-                    Duration.Short;
+                duration =
+                    Duration.Long;
+
+                if (isNeo1)
+                {
+                    neo2Duration =
+                        Duration.Short;
+                }
+                else
+                {
+                    neo1Duration =
+                        Duration.Short;
+                }
             }
         }
     }
@@ -475,14 +606,33 @@ public class MainWindow : Window, IDisposable
 
     private void DrawAccelButtons(
         string title,
-        ref AccelTiming accel)
+        ref AccelTiming accel,
+        bool isNeo1)
     {
         if (DrawChoiceButton(
             $"Short##{title}_AccelShort",
             accel == AccelTiming.Short))
         {
-            accel =
-                AccelTiming.Short;
+            if (accel != AccelTiming.Short)
+            {
+                SaveUndoState();
+
+                accel =
+                    AccelTiming.Short;
+
+                // If this Neo owns the accel,
+                // automatically mark the other Neo as None.
+                if (isNeo1)
+                {
+                    neo2Accel =
+                        AccelTiming.None;
+                }
+                else
+                {
+                    neo1Accel =
+                        AccelTiming.None;
+                }
+            }
         }
 
         ImGui.SameLine();
@@ -491,8 +641,26 @@ public class MainWindow : Window, IDisposable
             $"Long##{title}_AccelLong",
             accel == AccelTiming.Long))
         {
-            accel =
-                AccelTiming.Long;
+            if (accel != AccelTiming.Long)
+            {
+                SaveUndoState();
+
+                accel =
+                    AccelTiming.Long;
+
+                // If this Neo owns the accel,
+                // automatically mark the other Neo as None.
+                if (isNeo1)
+                {
+                    neo2Accel =
+                        AccelTiming.None;
+                }
+                else
+                {
+                    neo1Accel =
+                        AccelTiming.None;
+                }
+            }
         }
 
         ImGui.SameLine();
@@ -501,8 +669,13 @@ public class MainWindow : Window, IDisposable
             $"None##{title}_AccelNone",
             accel == AccelTiming.None))
         {
-            accel =
-                AccelTiming.None;
+            if (accel != AccelTiming.None)
+            {
+                SaveUndoState();
+
+                accel =
+                    AccelTiming.None;
+            }
         }
     }
 
@@ -519,18 +692,23 @@ public class MainWindow : Window, IDisposable
             $"Fire##{title}_Fire",
             element == ChaosElement.Fire))
         {
-            element =
-                ChaosElement.Fire;
+            if (element != ChaosElement.Fire)
+            {
+                SaveUndoState();
 
-            if (isChaos1)
-            {
-                chaos2Element =
-                    ChaosElement.Water;
-            }
-            else
-            {
-                chaos1Element =
-                    ChaosElement.Water;
+                element =
+                    ChaosElement.Fire;
+
+                if (isChaos1)
+                {
+                    chaos2Element =
+                        ChaosElement.Water;
+                }
+                else
+                {
+                    chaos1Element =
+                        ChaosElement.Water;
+                }
             }
         }
 
@@ -540,18 +718,23 @@ public class MainWindow : Window, IDisposable
             $"Water##{title}_Water",
             element == ChaosElement.Water))
         {
-            element =
-                ChaosElement.Water;
+            if (element != ChaosElement.Water)
+            {
+                SaveUndoState();
 
-            if (isChaos1)
-            {
-                chaos2Element =
-                    ChaosElement.Fire;
-            }
-            else
-            {
-                chaos1Element =
-                    ChaosElement.Fire;
+                element =
+                    ChaosElement.Water;
+
+                if (isChaos1)
+                {
+                    chaos2Element =
+                        ChaosElement.Fire;
+                }
+                else
+                {
+                    chaos1Element =
+                        ChaosElement.Fire;
+                }
             }
         }
     }
@@ -598,10 +781,6 @@ public class MainWindow : Window, IDisposable
 
     private void DrawResults()
     {
-        // --------------------------------------------------------
-        // FIRST RESOLUTION
-        // --------------------------------------------------------
-
         DrawOutputCard(
             "FirstNeoResults",
             () =>
@@ -622,18 +801,10 @@ public class MainWindow : Window, IDisposable
             },
             3);
 
-        // --------------------------------------------------------
-        // MANA CHARGE: LIGHTNING
-        // --------------------------------------------------------
-
         DrawManaInputBreak(
             "Mana Charge: Lightning",
             "ManaChargeLightning",
             ref manaChargeLightning);
-
-        // --------------------------------------------------------
-        // SECOND RESOLUTION
-        // --------------------------------------------------------
 
         DrawOutputCard(
             "MiddleResults",
@@ -655,18 +826,10 @@ public class MainWindow : Window, IDisposable
             },
             3);
 
-        // --------------------------------------------------------
-        // MANA CHARGE: BLIZZARD
-        // --------------------------------------------------------
-
         DrawManaInputBreak(
             "Mana Charge: Blizzard",
             "ManaChargeIce",
             ref manaChargeIce);
-
-        // --------------------------------------------------------
-        // SECOND SHRIEKS / TSUNAMI
-        // --------------------------------------------------------
 
         DrawOutputCard(
             "SecondNeoResults",
@@ -681,10 +844,6 @@ public class MainWindow : Window, IDisposable
                     GetTsunamiCallout());
             },
             2);
-
-        // --------------------------------------------------------
-        // MANA RELEASE
-        // --------------------------------------------------------
 
         DrawManaInputBreak(
             "Mana Release: Lightning",
@@ -705,10 +864,6 @@ public class MainWindow : Window, IDisposable
             ResolveMana(
                 manaChargeIce,
                 manaReleaseIce);
-
-        // --------------------------------------------------------
-        // FINAL MANA RESULT
-        // --------------------------------------------------------
 
         DrawOutputCard(
             "FinalManaResults",
@@ -873,9 +1028,6 @@ public class MainWindow : Window, IDisposable
         var neo2Matches =
             neo2Accel == timing;
 
-        // This should normally never happen,
-        // but protects us from accidentally entering
-        // the same accel timing on both Neo sets.
         if (neo1Matches && neo2Matches)
         {
             return "CHECK ACCEL INPUTS";
@@ -1066,7 +1218,7 @@ public class MainWindow : Window, IDisposable
     // RESET
     // ============================================================
 
-    private void ResetAll()
+    private void ResetAll(bool clearUndo = true)
     {
         neo1Truth =
             Truth.Unknown;
@@ -1109,5 +1261,10 @@ public class MainWindow : Window, IDisposable
 
         manaReleaseIce =
             Truth.Unknown;
+
+        if (clearUndo)
+        {
+            undoState = null;
+        }
     }
 }
