@@ -216,4 +216,4 @@ The goal of this plugin is to provide a streamlined in-game workflow with custom
 
 ## Disclaimer
 
-This is an unofficial community tool and is not affiliated with Square Enix, XIVLauncher, Dalamud, or WTFDIG. AI was used for this project.
+This is an unofficial community tool and is not affiliated with Square Enix, XIVLauncher, Dalamud, or WTFDIG. AI was used in this project.
