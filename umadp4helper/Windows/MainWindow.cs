@@ -1,5 +1,10 @@
 ﻿using System;
 using System.Numerics;
+using System.Collections.Generic;
+using System.Linq;
+using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.DutyState;
+using Dalamud.Plugin.Services;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
@@ -36,6 +41,39 @@ public class MainWindow : Window, IDisposable
         Fire,
         Water
     }
+
+    // ============================================================
+    // AUTO MODE
+    // ============================================================
+
+    private const uint BossTellStatusId = 2056;
+    private const uint WaterStatusId = 5545;
+    private const uint LightningStatusId = 5544;
+    private const uint GazeStatusId = 5543;
+    private const uint AccelStatusId = 5546;
+    private const uint TsunamiStatusId = 5548;
+    private const uint InfernoStatusId = 5547;
+
+    // The reference helper treats a tell as relevant for 20 seconds after it is seen.
+    private static readonly TimeSpan AutoTellFreshness = TimeSpan.FromSeconds(20);
+
+    // DMU short Water/Lightning/Accel timers are 50s or below when applied,
+    // while the long versions are over one minute. 60s cleanly separates them.
+    private const float ShortLongThresholdSeconds = 60.0f;
+
+    private readonly Plugin plugin;
+    private readonly HashSet<string> activeBossTellKeysLastFrame = new(StringComparer.Ordinal);
+    private readonly HashSet<uint> activeLocalStatusesLastFrame = new();
+
+    private int neoTellCount;
+    private int chaosTellCount;
+    private int latestNeoTellIndex;
+    private int latestChaosTellIndex;
+    private DateTime latestNeoTellAtUtc = DateTime.MinValue;
+    private DateTime latestChaosTellAtUtc = DateTime.MinValue;
+    private bool autoWasEnabled;
+    private string autoLastEvent = "Waiting for P4...";
+    private string autoActiveDebuffs = "No watched debuffs detected.";
 
     // ============================================================
     // CURRENT STATE
@@ -199,6 +237,12 @@ public class MainWindow : Window, IDisposable
     public MainWindow(Plugin plugin, string goatImagePath)
         : base("UMAD P4 Helper##P4HelperMain")
     {
+        this.plugin = plugin;
+        Plugin.Framework.Update += OnFrameworkUpdate;
+        Plugin.DutyState.DutyStarted += OnDutyReset;
+        Plugin.DutyState.DutyWiped += OnDutyReset;
+        Plugin.DutyState.DutyRecommenced += OnDutyReset;
+
         SizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(390, 400),
@@ -208,6 +252,10 @@ public class MainWindow : Window, IDisposable
 
     public void Dispose()
     {
+        Plugin.DutyState.DutyRecommenced -= OnDutyReset;
+        Plugin.DutyState.DutyWiped -= OnDutyReset;
+        Plugin.DutyState.DutyStarted -= OnDutyReset;
+        Plugin.Framework.Update -= OnFrameworkUpdate;
     }
 
     public override void Draw()
@@ -282,6 +330,392 @@ public class MainWindow : Window, IDisposable
         {
             SaveUndoState();
             ResetAll(false);
+            ResetAutoTracking();
+        }
+
+        ImGui.Spacing();
+        ImGui.Text("Mode:");
+        ImGui.SameLine();
+
+        var autoMode = plugin.Configuration.AutoMode;
+
+        if (ImGui.RadioButton("Manual", !autoMode))
+        {
+            plugin.Configuration.AutoMode = false;
+            plugin.Configuration.Save();
+        }
+
+        ImGui.SameLine();
+
+        if (ImGui.RadioButton("Auto (Experimental)", autoMode))
+        {
+            if (!plugin.Configuration.AutoMode)
+            {
+                plugin.Configuration.AutoMode = true;
+                plugin.Configuration.Save();
+                BeginAutoMode();
+            }
+        }
+
+        if (plugin.Configuration.AutoMode)
+        {
+            ImGui.TextDisabled($"Auto: {autoLastEvent}");
+            ImGui.TextDisabled($"Detected: {autoActiveDebuffs}");
+        }
+    }
+
+    // ============================================================
+    // AUTO DETECTION
+    // ============================================================
+
+    private void BeginAutoMode()
+    {
+        ResetAutoTracking();
+        ResetAll(false);
+        autoWasEnabled = true;
+        autoLastEvent = "Auto enabled - waiting for Neo/Chaos tells.";
+    }
+
+    private void ResetAutoTracking()
+    {
+        activeBossTellKeysLastFrame.Clear();
+        activeLocalStatusesLastFrame.Clear();
+        neoTellCount = 0;
+        chaosTellCount = 0;
+        latestNeoTellIndex = 0;
+        latestChaosTellIndex = 0;
+        latestNeoTellAtUtc = DateTime.MinValue;
+        latestChaosTellAtUtc = DateTime.MinValue;
+        autoLastEvent = "Waiting for P4...";
+        autoActiveDebuffs = "No watched debuffs detected.";
+    }
+
+    private void OnFrameworkUpdate(IFramework framework)
+    {
+        var enabled = plugin.Configuration.AutoMode;
+
+        if (!enabled)
+        {
+            autoWasEnabled = false;
+            return;
+        }
+
+        if (!autoWasEnabled)
+        {
+            BeginAutoMode();
+        }
+
+        RefreshAutoBossTells();
+        RefreshAutoLocalStatuses();
+    }
+
+    private void OnDutyReset(IDutyStateEventArgs args)
+    {
+        ResetAutoTracking();
+
+        if (plugin.Configuration.AutoMode)
+        {
+            ResetAll(false);
+            autoWasEnabled = true;
+            autoLastEvent = "Pull reset - waiting for P4...";
+        }
+    }
+
+    private void RefreshAutoBossTells()
+    {
+        var activeTellKeys = new HashSet<string>(StringComparer.Ordinal);
+        var now = DateTime.UtcNow;
+
+        foreach (var gameObject in Plugin.ObjectTable)
+        {
+            if (gameObject == null || !gameObject.IsValid() || gameObject is not ICharacter character || character is not IBattleChara battleChara)
+            {
+                continue;
+            }
+
+            var name = character.Name.TextValue;
+            var isNeo = string.Equals(name, "Neo Exdeath", StringComparison.OrdinalIgnoreCase);
+            var isChaos = string.Equals(name, "Chaos", StringComparison.OrdinalIgnoreCase);
+
+            if (!isNeo && !isChaos)
+            {
+                continue;
+            }
+
+            foreach (var status in battleChara.StatusList)
+            {
+                if (status.StatusId != BossTellStatusId)
+                {
+                    continue;
+                }
+
+                var truth = TruthFromTellParam(status.Param);
+                var bossName = isNeo ? "Neo" : "Chaos";
+                var activeKey = $"{bossName}:{status.Param}";
+                activeTellKeys.Add(activeKey);
+
+                if (!activeBossTellKeysLastFrame.Contains(activeKey))
+                {
+                    if (isNeo)
+                    {
+                        neoTellCount++;
+                        if (neoTellCount <= 2)
+                        {
+                            latestNeoTellIndex = neoTellCount;
+                            latestNeoTellAtUtc = now;
+                            ApplyNeoTruth(neoTellCount, truth);
+                            autoLastEvent = $"Neo #{neoTellCount} {TruthToString(truth)} (tell {status.Param}).";
+                        }
+                    }
+                    else
+                    {
+                        chaosTellCount++;
+                        if (chaosTellCount <= 2)
+                        {
+                            latestChaosTellIndex = chaosTellCount;
+                            latestChaosTellAtUtc = now;
+                            ApplyChaosTruth(chaosTellCount, truth);
+                            autoLastEvent = $"Chaos #{chaosTellCount} {TruthToString(truth)} (tell {status.Param}).";
+                        }
+                    }
+                }
+
+                break;
+            }
+        }
+
+        activeBossTellKeysLastFrame.Clear();
+        foreach (var key in activeTellKeys)
+        {
+            activeBossTellKeysLastFrame.Add(key);
+        }
+    }
+
+    private void RefreshAutoLocalStatuses()
+    {
+        var now = DateTime.UtcNow;
+        var currentStatusIds = new HashSet<uint>();
+        var display = new List<string>();
+
+        var localContentId = Plugin.PlayerState.ContentId;
+        var localEntityId = Plugin.ObjectTable.LocalPlayer?.EntityId ?? 0;
+
+        foreach (var member in Plugin.PartyList)
+        {
+            var isLocal =
+                (localContentId != 0 && member.ContentId == localContentId) ||
+                (localEntityId != 0 && member.EntityId == localEntityId);
+
+            if (!isLocal)
+            {
+                continue;
+            }
+
+            foreach (var status in member.Statuses)
+            {
+                if (!IsAutoWatchedStatus(status.StatusId))
+                {
+                    continue;
+                }
+
+                currentStatusIds.Add(status.StatusId);
+                display.Add($"{GetAutoStatusName(status.StatusId)} {status.RemainingTime:0.0}s");
+
+                if (!activeLocalStatusesLastFrame.Contains(status.StatusId))
+                {
+                    HandleNewAutoStatus(status.StatusId, status.RemainingTime, now);
+                }
+            }
+
+            break;
+        }
+
+        autoActiveDebuffs = display.Count > 0
+            ? string.Join(" | ", display)
+            : "No watched debuffs detected.";
+
+        activeLocalStatusesLastFrame.Clear();
+        foreach (var statusId in currentStatusIds)
+        {
+            activeLocalStatusesLastFrame.Add(statusId);
+        }
+    }
+
+    private void HandleNewAutoStatus(uint statusId, float remainingTime, DateTime now)
+    {
+        if (statusId is WaterStatusId or LightningStatusId)
+        {
+            if (!HasFreshNeoTell(now))
+            {
+                autoLastEvent = $"{GetAutoStatusName(statusId)} appeared, but no fresh Neo tell was captured.";
+                return;
+            }
+
+            var duration = remainingTime < ShortLongThresholdSeconds
+                ? Duration.Short
+                : Duration.Long;
+
+            ApplyNeoDuration(latestNeoTellIndex, duration);
+            autoLastEvent = $"Neo #{latestNeoTellIndex}: {GetAutoStatusName(statusId)} {duration} ({remainingTime:0.0}s).";
+            return;
+        }
+
+        if (statusId == AccelStatusId)
+        {
+            if (!HasFreshNeoTell(now))
+            {
+                autoLastEvent = "Accel appeared, but no fresh Neo tell was captured.";
+                return;
+            }
+
+            var timing = remainingTime < ShortLongThresholdSeconds
+                ? AccelTiming.Short
+                : AccelTiming.Long;
+
+            ApplyNeoAccel(latestNeoTellIndex, timing);
+            autoLastEvent = $"Neo #{latestNeoTellIndex}: Accel {timing} ({remainingTime:0.0}s).";
+            return;
+        }
+
+        if (statusId is TsunamiStatusId or InfernoStatusId)
+        {
+            if (!HasFreshChaosTell(now))
+            {
+                autoLastEvent = $"{GetAutoStatusName(statusId)} appeared, but no fresh Chaos tell was captured.";
+                return;
+            }
+
+            var element = statusId == TsunamiStatusId
+                ? ChaosElement.Water
+                : ChaosElement.Fire;
+
+            ApplyChaosElement(latestChaosTellIndex, element);
+            autoLastEvent = $"Chaos #{latestChaosTellIndex}: {GetAutoStatusName(statusId)}.";
+            return;
+        }
+
+        if (statusId == GazeStatusId)
+        {
+            autoLastEvent = $"Gaze detected ({remainingTime:0.0}s).";
+        }
+    }
+
+    private bool HasFreshNeoTell(DateTime now)
+    {
+        return latestNeoTellIndex is 1 or 2 &&
+            now - latestNeoTellAtUtc <= AutoTellFreshness;
+    }
+
+    private bool HasFreshChaosTell(DateTime now)
+    {
+        return latestChaosTellIndex is 1 or 2 &&
+            now - latestChaosTellAtUtc <= AutoTellFreshness;
+    }
+
+    private static bool IsAutoWatchedStatus(uint statusId)
+    {
+        return statusId is WaterStatusId or LightningStatusId or GazeStatusId or AccelStatusId or TsunamiStatusId or InfernoStatusId;
+    }
+
+    private static string GetAutoStatusName(uint statusId)
+    {
+        return statusId switch
+        {
+            WaterStatusId => "Water",
+            LightningStatusId => "Lightning",
+            GazeStatusId => "Gaze",
+            AccelStatusId => "Accel",
+            TsunamiStatusId => "Tsunami",
+            InfernoStatusId => "Inferno",
+            _ => $"Status {statusId}"
+        };
+    }
+
+    private static Truth TruthFromTellParam(ushort param)
+    {
+        return param switch
+        {
+            1119 => Truth.Fake,
+            1120 => Truth.Real,
+            1121 => Truth.Fake,
+            1122 => Truth.Real,
+            _ => Truth.Unknown
+        };
+    }
+
+    private void ApplyNeoTruth(int index, Truth truth)
+    {
+        if (truth == Truth.Unknown)
+        {
+            return;
+        }
+
+        if (index == 1)
+        {
+            neo1Truth = truth;
+        }
+        else if (index == 2)
+        {
+            neo2Truth = truth;
+        }
+    }
+
+    private void ApplyChaosTruth(int index, Truth truth)
+    {
+        if (truth == Truth.Unknown)
+        {
+            return;
+        }
+
+        if (index == 1)
+        {
+            chaos1Truth = truth;
+        }
+        else if (index == 2)
+        {
+            chaos2Truth = truth;
+        }
+    }
+
+    private void ApplyNeoDuration(int index, Duration duration)
+    {
+        if (index == 1)
+        {
+            neo1Duration = duration;
+            neo2Duration = duration == Duration.Short ? Duration.Long : Duration.Short;
+        }
+        else if (index == 2)
+        {
+            neo2Duration = duration;
+            neo1Duration = duration == Duration.Short ? Duration.Long : Duration.Short;
+        }
+    }
+
+    private void ApplyNeoAccel(int index, AccelTiming timing)
+    {
+        if (index == 1)
+        {
+            neo1Accel = timing;
+            neo2Accel = AccelTiming.None;
+        }
+        else if (index == 2)
+        {
+            neo2Accel = timing;
+            neo1Accel = AccelTiming.None;
+        }
+    }
+
+    private void ApplyChaosElement(int index, ChaosElement element)
+    {
+        if (index == 1)
+        {
+            chaos1Element = element;
+            chaos2Element = element == ChaosElement.Fire ? ChaosElement.Water : ChaosElement.Fire;
+        }
+        else if (index == 2)
+        {
+            chaos2Element = element;
+            chaos1Element = element == ChaosElement.Fire ? ChaosElement.Water : ChaosElement.Fire;
         }
     }
 

@@ -11,6 +11,9 @@ public class Configuration : IPluginConfiguration
     public bool IsConfigWindowMovable { get; set; } = true;
     public bool SomePropertyToBeSavedAndWithADefault { get; set; } = true;
 
+    // Manual by default. Auto mode reads live P4 boss tells and debuffs.
+    public bool AutoMode { get; set; } = false;
+
     // The below exists just to make saving less cumbersome
     public void Save()
     {

@@ -1,20 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
+
   <PropertyGroup>
     <Version>0.0.0.1</Version>
-    <!-- Manifest fields (see https://github.com/goatcorp/DalamudPackager/blob/827d88dc/DalamudPackager/DalamudPackager.cs#L420) -->
+
     <Author>Frocodes</Author>
     <Name>Helpfulp4</Name>
-    <Punchline>What worked for me hopefully works for you in DMU p4</Punchline>
-    <Description>Input helper for DMU p4</Description>
-    <RepoUrl>https://github.com/frocodes01/helpfulp4</RepoUrl>
-    <Tags>sample;plugin;goats</Tags>
+
+    <Punchline>
+      What worked for me hopefully works for you in DMU p4
+    </Punchline>
+
+    <Description>
+      Input helper for DMU p4
+    </Description>
+
+    <RepoUrl>
+      https://github.com/frocodes01/helpfulp4
+    </RepoUrl>
+
+    <Tags>
+      dmu;p4;helper
+    </Tags>
+
   </PropertyGroup>
 
-  <ItemGroup>
-    <Content Include="..\Data\goat.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Visible>false</Visible>
-    </Content>
-  </ItemGroup>
 </Project>

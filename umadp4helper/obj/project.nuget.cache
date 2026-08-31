@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "doeUIhsjHNo=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\rafae\\OneDrive\\Documents\\GitHub\\smarterp4\\umadp4helper\\umadp4helper.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\rafae\\.nuget\\packages\\dalamudpackager\\15.0.0\\dalamudpackager.15.0.0.nupkg.sha512",
+    "C:\\Users\\rafae\\.nuget\\packages\\dotnet.reproduciblebuilds\\1.2.39\\dotnet.reproduciblebuilds.1.2.39.nupkg.sha512"
+  ],
+  "logs": []
+}

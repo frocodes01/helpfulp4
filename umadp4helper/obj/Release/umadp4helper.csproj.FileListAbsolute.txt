@@ -1,0 +1,9 @@
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\umadp4helper\bin\Release\umadp4helper.deps.json
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\umadp4helper\bin\Release\umadp4helper.dll
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\umadp4helper\obj\Release\umadp4helper.csproj.AssemblyReference.cache
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\umadp4helper\obj\Release\umadp4helper.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\umadp4helper\obj\Release\umadp4helper.AssemblyInfoInputs.cache
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\umadp4helper\obj\Release\umadp4helper.AssemblyInfo.cs
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\umadp4helper\obj\Release\umadp4helper.csproj.CoreCompileInputs.cache
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\umadp4helper\obj\Release\umadp4helper.sourcelink.json
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\umadp4helper\obj\Release\umadp4helper.dll

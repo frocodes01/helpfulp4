@@ -1,0 +1,10 @@
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\bin\Debug\goat.png
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\bin\Debug\SamplePlugin.deps.json
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\bin\Debug\SamplePlugin.dll
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\obj\Debug\SamplePlugin.csproj.AssemblyReference.cache
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\obj\Debug\SamplePlugin.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\obj\Debug\SamplePlugin.AssemblyInfoInputs.cache
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\obj\Debug\SamplePlugin.AssemblyInfo.cs
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\obj\Debug\SamplePlugin.csproj.CoreCompileInputs.cache
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\obj\Debug\SamplePlugin.sourcelink.json
+C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\SamplePlugin\obj\Debug\SamplePlugin.dll

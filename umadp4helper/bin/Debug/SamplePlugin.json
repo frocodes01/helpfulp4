@@ -1,0 +1,25 @@
+{
+  "Author": "Frozen Yogurt on Lamia",
+  "Name": "Helpfulp4",
+  "InternalName": "SamplePlugin",
+  "AssemblyVersion": "0.0.0.1",
+  "Description": "Input helper for DMU p4",
+  "ApplicableVersion": "any",
+  "RepoUrl": "https://github.com/frocodes01/helpfulp4",
+  "Tags": [
+    "p4",
+    "plugin",
+    "dmu"
+  ],
+  "DalamudApiLevel": 15,
+  "IsHide": false,
+  "IsTestingExclusive": true,
+  "LoadRequiredState": 0,
+  "LoadSync": false,
+  "CanUnloadAsync": false,
+  "LoadPriority": 0,
+  "Punchline": "What worked for me hopefully works for you in DMU p4",
+  "AcceptsFeedback": true
+  "DownloadLinkTesting": "https://github.com/frocodes01/helpfulp4/releases/download/0.0.0.1/Helpfulp4.zip",
+  "LastUpdate": 0
+}
