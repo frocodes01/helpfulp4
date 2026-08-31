@@ -1,0 +1,23 @@
+[
+  {
+    "Author": "Frocodes",
+    "Name": "Helpfulp4",
+    "InternalName": "Helpfulp4",
+    "AssemblyVersion": "0.0.0.1",
+    "TestingAssemblyVersion": "0.0.0.1",
+    "Description": "DMU P4 assignment helper with manual and experimental automatic mechanic detection.",
+    "Punchline": "DMU P4 assignment helper.",
+    "RepoUrl": "https://github.com/frocodes01/helpfulp4",
+    "ApplicableVersion": "any",
+
+    "DalamudApiLevel": 15,
+    "TestingDalamudApiLevel": 15,
+
+    "IsHide": false,
+    "IsTestingExclusive": true,
+
+    "DownloadLinkTesting": "https://github.com/frocodes01/helpfulp4/releases/download/0.0.0.1/Helpfulp4.zip",
+
+    "LastUpdate": 1788180000
+  }
+]
