@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
@@ -774,12 +774,7 @@ public class MainWindow : Window, IDisposable
         DrawInputs();
 
         ImGui.Spacing();
-        ImGui.Spacing();
         ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.Text("PLAYBACK");
-
         ImGui.Spacing();
 
         DrawResults();
@@ -1266,17 +1261,23 @@ public class MainWindow : Window, IDisposable
 
         DrawCompactGazeTwoChaosCard();
 
-        DrawCompactPairCard(
+        DrawCompactCard(
             "PlaybackManaReleases",
             "MANA RELEASE",
-            () => DrawCompactMana(
-                "Lightning",
-                "ManaReleaseLightningCompact",
-                ref manaReleaseLightning),
-            () => DrawCompactMana(
-                "Blizzard",
-                "ManaReleaseIceCompact",
-                ref manaReleaseIce));
+            () =>
+            {
+                DrawCompactMana(
+                    "Lightning",
+                    "ManaReleaseLightningCompact",
+                    ref manaReleaseLightning);
+
+                ImGui.Spacing();
+
+                DrawCompactMana(
+                    "Blizzard",
+                    "ManaReleaseIceCompact",
+                    ref manaReleaseIce);
+            });
 
         var lightningResult = ResolveMana(
             manaChargeLightning,
@@ -1291,21 +1292,8 @@ public class MainWindow : Window, IDisposable
             "FINAL",
             () =>
             {
-                if (ImGui.BeginTable(
-                    "PlaybackFinalResults",
-                    2,
-                    ImGuiTableFlags.SizingStretchSame |
-                    ImGuiTableFlags.NoSavedSettings))
-                {
-                    ImGui.TableNextRow();
-                    ImGui.TableSetColumnIndex(0);
-                    ImGui.Text($"Lightning: {TruthToString(lightningResult)}");
-
-                    ImGui.TableSetColumnIndex(1);
-                    ImGui.Text($"Blizzard: {TruthToString(blizzardResult)}");
-
-                    ImGui.EndTable();
-                }
+                ImGui.Text($"Lightning: {TruthToString(lightningResult)}");
+                ImGui.Text($"Blizzard: {TruthToString(blizzardResult)}");
 
                 var manaCallout = GetFinalManaCallout(
                     lightningResult,
