@@ -54,6 +54,18 @@ public class MainWindow : Window, IDisposable
     private const uint TsunamiStatusId = 5548;
     private const uint InfernoStatusId = 5547;
 
+    // Embedded playback icons. These are built into the plugin DLL so the
+    // custom-repo ZIP does not need to ship loose PNG files.
+    private const string IconResourcePrefix = "Helpfulp4.Icons.";
+    private const string AccelIcon = "acceleration.png";
+    private const string ForkedLightningIcon = "forked_lightning.png";
+    private const string CompressedWaterIcon = "compressed_water.png";
+    private const string GazeIcon = "gaze.png";
+    private const string TsunamiIcon = "tsunami.png";
+    private const string InfernoIcon = "inferno.png";
+    private const string DonutIcon = "donut.png";
+    private const string BaitMidIcon = "bait_mid_chariot.png";
+
     // The reference helper treats a tell as relevant for 20 seconds after it is seen.
     private static readonly TimeSpan AutoTellFreshness = TimeSpan.FromSeconds(20);
 
@@ -67,6 +79,7 @@ public class MainWindow : Window, IDisposable
 
     private int neoTellCount;
     private int chaosTellCount;
+    private int gazeCount;
     private int latestNeoTellIndex;
     private int latestChaosTellIndex;
     private DateTime latestNeoTellAtUtc = DateTime.MinValue;
@@ -382,6 +395,7 @@ public class MainWindow : Window, IDisposable
         activeLocalStatusesLastFrame.Clear();
         neoTellCount = 0;
         chaosTellCount = 0;
+        gazeCount = 0;
         latestNeoTellIndex = 0;
         latestChaosTellIndex = 0;
         latestNeoTellAtUtc = DateTime.MinValue;
@@ -596,7 +610,9 @@ public class MainWindow : Window, IDisposable
 
         if (statusId == GazeStatusId)
         {
-            autoLastEvent = $"Gaze detected ({remainingTime:0.0}s).";
+            gazeCount++;
+            var gazeIndex = Math.Min(gazeCount, 2);
+            autoLastEvent = $"Gaze #{gazeIndex} detected ({remainingTime:0.0}s).";
         }
     }
 
@@ -1215,69 +1231,81 @@ public class MainWindow : Window, IDisposable
 
     private void DrawResults()
     {
+        // Playback is deliberately ordered around what the player sees in the
+        // mechanic rather than around the input categories.
         DrawOutputCard(
             "FirstNeoResults",
             () =>
             {
-                DrawResultLine(
-                    "1st spread is",
-                    GetSpreadCallout(
-                        neo1Truth));
+                DrawSpreadResultRow(
+                    "1st spread",
+                    neo1Truth);
 
-                DrawResultLine(
-                    "Your accel is",
-                    GetAccelCalloutForTiming(
-                        AccelTiming.Short));
-
-                DrawResultLine(
-                    "",
-                    $"{GetGazeCallout(neo1Truth)} from 1st shrieks");
-            },
-            3);
-
-        DrawManaInputBreak(
-            "Mana Charge: Lightning",
-            "ManaChargeLightning",
-            ref manaChargeLightning);
-
-        DrawOutputCard(
-            "MiddleResults",
-            () =>
-            {
-                DrawResultLine(
-                    "Inferno",
-                    GetInfernoCallout());
-
-                DrawResultLine(
-                    "2nd spread is",
-                    GetSpreadCallout(
-                        neo2Truth));
-
-                DrawResultLine(
-                    "Your accel is",
-                    GetAccelCalloutForTiming(
-                        AccelTiming.Long));
-            },
-            3);
-
-        DrawManaInputBreak(
-            "Mana Charge: Blizzard",
-            "ManaChargeIce",
-            ref manaChargeIce);
-
-        DrawOutputCard(
-            "SecondNeoResults",
-            () =>
-            {
-                DrawResultLine(
-                    "",
-                    $"{GetGazeCallout(neo2Truth)} from 2nd shrieks");
-
-                DrawResultLine(
-                    "Tsunami",
-                    GetTsunamiCallout());
+                DrawIconResultLine(
+                    AccelIcon,
+                    "1st accel",
+                    GetAccelCalloutForTiming(AccelTiming.Short));
             },
             2);
+
+        DrawOutputCard(
+            "FirstGazeManaCharge",
+            () =>
+            {
+                DrawIconResultLine(
+                    GazeIcon,
+                    "1st Gaze",
+                    GetGazeCallout(neo1Truth));
+
+                DrawManaInline(
+                    "Mana Charge #1 - Lightning",
+                    "ManaChargeLightning",
+                    ref manaChargeLightning);
+            },
+            2);
+
+        DrawChaosPlaybackCard(
+            "InfernoPlayback",
+            InfernoIcon,
+            "INFERNO / ENTROPY",
+            GetInfernoCallout());
+
+        DrawOutputCard(
+            "SecondNeoManaCharge",
+            () =>
+            {
+                DrawSpreadResultRow(
+                    "2nd stack / spread",
+                    neo2Truth);
+
+                DrawIconResultLine(
+                    AccelIcon,
+                    "2nd accel",
+                    GetAccelCalloutForTiming(AccelTiming.Long));
+
+                DrawManaInline(
+                    "Mana Charge #2 - Blizzard",
+                    "ManaChargeIce",
+                    ref manaChargeIce);
+            },
+            3);
+
+        DrawOutputCard(
+            "SecondGazeResults",
+            () =>
+            {
+                DrawIconResultLine(
+                    GazeIcon,
+                    "2nd Gaze",
+                    GetGazeCallout(neo2Truth));
+            },
+            1);
+
+        DrawChaosPlaybackCard(
+            "TsunamiPlayback",
+            TsunamiIcon,
+            "TSUNAMI / DYNAMIC FLUID",
+            GetTsunamiCallout());
 
         DrawManaInputBreak(
             "Mana Release: Lightning",
@@ -1305,13 +1333,11 @@ public class MainWindow : Window, IDisposable
             {
                 DrawResultLine(
                     "Lightning",
-                    TruthToString(
-                        lightningResult));
+                    TruthToString(lightningResult));
 
                 DrawResultLine(
                     "Blizzard",
-                    TruthToString(
-                        blizzardResult));
+                    TruthToString(blizzardResult));
 
                 ImGui.Spacing();
 
@@ -1326,7 +1352,58 @@ public class MainWindow : Window, IDisposable
                 ImGui.Text(
                     $"Final Mana: {manaCallout} + {tsunamiCallout}");
             },
-            4);
+            3,
+            compact: true);
+    }
+
+    private void DrawSpreadResultRow(string label, Truth truth)
+    {
+        var result = GetSpreadCallout(truth);
+        var icon = truth switch
+        {
+            Truth.Real => ForkedLightningIcon,
+            Truth.Fake => CompressedWaterIcon,
+            _ => null
+        };
+
+        DrawIconResultLine(icon, label, result);
+    }
+
+    private void DrawChaosPlaybackCard(
+        string id,
+        string mechanicIcon,
+        string mechanicLabel,
+        string resolution)
+    {
+        var movementIcon = resolution switch
+        {
+            "STAY" => DonutIcon,
+            "SPREAD" => BaitMidIcon,
+            _ => null
+        };
+
+        var movementText = resolution switch
+        {
+            "STAY" => "DONUT / STAY MID",
+            "SPREAD" => "BAIT MID → CHARIOT",
+            _ => "?"
+        };
+
+        DrawOutputCard(
+            id,
+            () =>
+            {
+                DrawIconResultLine(
+                    mechanicIcon,
+                    "Mechanic",
+                    mechanicLabel);
+
+                DrawIconResultLine(
+                    movementIcon,
+                    "Resolve",
+                    movementText);
+            },
+            2);
     }
 
     // ============================================================
@@ -1336,7 +1413,8 @@ public class MainWindow : Window, IDisposable
     private void DrawOutputCard(
         string id,
         Action contents,
-        int lineCount)
+        int rowCount,
+        bool compact = false)
     {
         ImGui.PushStyleColor(
             ImGuiCol.ChildBg,
@@ -1346,18 +1424,18 @@ public class MainWindow : Window, IDisposable
             ImGuiCol.Border,
             CardBorder);
 
-        var lineHeight =
-            ImGui.GetTextLineHeightWithSpacing();
+        var scale = ImGuiHelpers.GlobalScale;
+        var rowHeight = compact
+            ? ImGui.GetTextLineHeightWithSpacing()
+            : 44 * scale;
 
         var cardHeight =
-            (lineHeight * lineCount)
-            + (18 * ImGuiHelpers.GlobalScale);
+            (rowHeight * rowCount)
+            + (18 * scale);
 
         ImGui.BeginChild(
             id,
-            new Vector2(
-                0,
-                cardHeight),
+            new Vector2(0, cardHeight),
             true);
 
         contents();
@@ -1367,6 +1445,64 @@ public class MainWindow : Window, IDisposable
         ImGui.PopStyleColor(2);
 
         ImGui.Spacing();
+    }
+
+    private void DrawIconResultLine(
+        string? iconFile,
+        string label,
+        string result)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var iconSize = 34 * scale;
+
+        if (!string.IsNullOrWhiteSpace(iconFile))
+        {
+            DrawEmbeddedIcon(iconFile, iconSize);
+            ImGui.SameLine();
+        }
+        else
+        {
+            // Keep text aligned with rows that do have an icon.
+            ImGui.Dummy(new Vector2(iconSize, iconSize));
+            ImGui.SameLine();
+        }
+
+        var textStartY = ImGui.GetCursorPosY();
+        var textHeight = ImGui.GetTextLineHeightWithSpacing() * 2;
+        if (iconSize > textHeight)
+        {
+            ImGui.SetCursorPosY(textStartY + ((iconSize - textHeight) * 0.5f));
+        }
+
+        ImGui.TextDisabled(label);
+        ImGui.Text(result);
+    }
+
+    private void DrawEmbeddedIcon(string fileName, float size)
+    {
+        var resourceName = IconResourcePrefix + fileName;
+        var shared = Plugin.TextureProvider.GetFromManifestResource(
+            typeof(MainWindow).Assembly,
+            resourceName);
+
+        var wrap = shared.GetWrapOrDefault();
+        if (wrap != null)
+        {
+            ImGui.Image(wrap.Handle, new Vector2(size, size));
+        }
+        else
+        {
+            ImGui.Dummy(new Vector2(size, size));
+        }
+    }
+
+    private void DrawManaInline(
+        string title,
+        string id,
+        ref Truth value)
+    {
+        ImGui.TextDisabled(title);
+        DrawTruthButtons(id, ref value);
     }
 
     private void DrawResultLine(

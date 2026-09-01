@@ -2,27 +2,24 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
 
   <PropertyGroup>
-    <Version>0.0.0.1</Version>
-
+    <Version>0.0.0.2</Version>
     <Author>Frocodes</Author>
     <Name>Helpfulp4</Name>
-
-    <Punchline>
-      What worked for me hopefully works for you in DMU p4
-    </Punchline>
-
-    <Description>
-      Input helper for DMU p4
-    </Description>
-
-    <RepoUrl>
-      https://github.com/frocodes01/helpfulp4
-    </RepoUrl>
-
-    <Tags>
-      dmu;p4;helper
-    </Tags>
-
+    <Punchline>What worked for me hopefully works for you in DMU p4</Punchline>
+    <Description>DMU P4 assignment helper with manual and experimental automatic mechanic detection.</Description>
+    <RepoUrl>https://github.com/frocodes01/helpfulp4</RepoUrl>
+    <Tags>dmu;p4;helper</Tags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Icons\acceleration.png" LogicalName="Helpfulp4.Icons.acceleration.png" />
+    <EmbeddedResource Include="Icons\forked_lightning.png" LogicalName="Helpfulp4.Icons.forked_lightning.png" />
+    <EmbeddedResource Include="Icons\compressed_water.png" LogicalName="Helpfulp4.Icons.compressed_water.png" />
+    <EmbeddedResource Include="Icons\gaze.png" LogicalName="Helpfulp4.Icons.gaze.png" />
+    <EmbeddedResource Include="Icons\tsunami.png" LogicalName="Helpfulp4.Icons.tsunami.png" />
+    <EmbeddedResource Include="Icons\inferno.png" LogicalName="Helpfulp4.Icons.inferno.png" />
+    <EmbeddedResource Include="Icons\donut.png" LogicalName="Helpfulp4.Icons.donut.png" />
+    <EmbeddedResource Include="Icons\bait_mid_chariot.png" LogicalName="Helpfulp4.Icons.bait_mid_chariot.png" />
+  </ItemGroup>
 
 </Project>

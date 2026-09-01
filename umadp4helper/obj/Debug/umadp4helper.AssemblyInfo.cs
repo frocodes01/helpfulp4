@@ -12,13 +12,14 @@ using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("umadp4helper")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
-[assembly: System.Reflection.AssemblyDescriptionAttribute("\r\n      Input helper for DMU p4\r\n    ")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("0.0.0.1")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.0.0.1+c54ec1780c9b31fd1f608c356569f8fb8e1c331f")]
+[assembly: System.Reflection.AssemblyDescriptionAttribute(("DMU P4 assignment helper with manual and experimental automatic mechanic detectio" +
+    "n."))]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("0.0.0.2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.0.0.2+646da6da48ac3cc923e398168b9969fed6d8ac68")]
 [assembly: System.Reflection.AssemblyProductAttribute("umadp4helper")]
 [assembly: System.Reflection.AssemblyTitleAttribute("umadp4helper")]
-[assembly: System.Reflection.AssemblyVersionAttribute("0.0.0.1")]
-[assembly: System.Reflection.AssemblyMetadataAttribute("RepositoryUrl", "https://github.com/frocodes01/smarterp4.git")]
+[assembly: System.Reflection.AssemblyVersionAttribute("0.0.0.2")]
+[assembly: System.Reflection.AssemblyMetadataAttribute("RepositoryUrl", "https://github.com/frocodes01/helpfulp4.git")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
 
