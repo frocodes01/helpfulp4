@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v10.0": {
-      "umadp4helper/0.0.0.1": {
+      "umadp4helper/0.0.0.2": {
         "runtime": {
           "umadp4helper.dll": {}
         }
@@ -14,7 +14,7 @@
     }
   },
   "libraries": {
-    "umadp4helper/0.0.0.1": {
+    "umadp4helper/0.0.0.2": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

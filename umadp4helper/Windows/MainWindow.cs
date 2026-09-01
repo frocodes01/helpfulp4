@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
@@ -1231,132 +1231,218 @@ public class MainWindow : Window, IDisposable
 
     private void DrawResults()
     {
-        // Playback is deliberately ordered around what the player sees in the
-        // mechanic rather than around the input categories.
-        DrawOutputCard(
-            "FirstNeoResults",
-            () =>
-            {
-                DrawSpreadResultRow(
-                    "1st spread",
-                    neo1Truth);
+        // Dense playback layout: the same shared state is used by Manual and Auto.
+        // Cards intentionally avoid child windows so there are no per-card scrollbars.
 
-                DrawIconResultLine(
-                    AccelIcon,
-                    "1st accel",
-                    GetAccelCalloutForTiming(AccelTiming.Short));
-            },
-            2);
+        DrawCompactPairCard(
+            "PlaybackNeo1",
+            "NEO #1",
+            () => DrawSpreadCompact("1st Spread", neo1Truth),
+            () => DrawCompactMechanic(
+                AccelIcon,
+                "1st Accel",
+                GetAccelCalloutForTiming(AccelTiming.Short)));
 
-        DrawOutputCard(
-            "FirstGazeManaCharge",
-            () =>
-            {
-                DrawIconResultLine(
-                    GazeIcon,
-                    "1st Gaze",
-                    GetGazeCallout(neo1Truth));
+        DrawCompactPairCard(
+            "PlaybackGaze1Mana1",
+            "GAZE #1 + MANA CHARGE #1",
+            () => DrawCompactMechanic(
+                GazeIcon,
+                "Gaze",
+                GetGazeCallout(neo1Truth)),
+            () => DrawCompactMana(
+                "Lightning",
+                "ManaChargeLightningCompact",
+                ref manaChargeLightning));
 
-                DrawManaInline(
-                    "Mana Charge #1 - Lightning",
-                    "ManaChargeLightning",
-                    ref manaChargeLightning);
-            },
-            2);
-
-        DrawChaosPlaybackCard(
-            "InfernoPlayback",
+        DrawCompactChaosCard(
+            "PlaybackInferno",
+            "CHAOS #1",
             InfernoIcon,
             "INFERNO / ENTROPY",
             GetInfernoCallout());
 
-        DrawOutputCard(
-            "SecondNeoManaCharge",
+        DrawCompactNeoTwoCard();
+
+        DrawCompactGazeTwoChaosCard();
+
+        DrawCompactPairCard(
+            "PlaybackManaReleases",
+            "MANA RELEASE",
+            () => DrawCompactMana(
+                "Lightning",
+                "ManaReleaseLightningCompact",
+                ref manaReleaseLightning),
+            () => DrawCompactMana(
+                "Blizzard",
+                "ManaReleaseIceCompact",
+                ref manaReleaseIce));
+
+        var lightningResult = ResolveMana(
+            manaChargeLightning,
+            manaReleaseLightning);
+
+        var blizzardResult = ResolveMana(
+            manaChargeIce,
+            manaReleaseIce);
+
+        DrawCompactCard(
+            "PlaybackFinal",
+            "FINAL",
             () =>
             {
-                DrawSpreadResultRow(
-                    "2nd stack / spread",
-                    neo2Truth);
+                if (ImGui.BeginTable(
+                    "PlaybackFinalResults",
+                    2,
+                    ImGuiTableFlags.SizingStretchSame |
+                    ImGuiTableFlags.NoSavedSettings))
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableSetColumnIndex(0);
+                    DrawCompactTextResult(
+                        "Lightning",
+                        TruthToString(lightningResult));
 
-                DrawIconResultLine(
-                    AccelIcon,
-                    "2nd accel",
-                    GetAccelCalloutForTiming(AccelTiming.Long));
+                    ImGui.TableSetColumnIndex(1);
+                    DrawCompactTextResult(
+                        "Blizzard",
+                        TruthToString(blizzardResult));
 
-                DrawManaInline(
-                    "Mana Charge #2 - Blizzard",
-                    "ManaChargeIce",
+                    ImGui.EndTable();
+                }
+
+                var manaCallout = GetFinalManaCallout(
+                    lightningResult,
+                    blizzardResult);
+
+                var tsunamiCallout = GetFinalTsunamiCallout();
+
+                ImGui.Spacing();
+                ImGui.TextDisabled("Final movement");
+                ImGui.Text($"{manaCallout} + {tsunamiCallout}");
+            });
+    }
+
+    private void DrawCompactNeoTwoCard()
+    {
+        DrawCompactCard(
+            "PlaybackNeo2",
+            "NEO #2 + MANA CHARGE #2",
+            () =>
+            {
+                if (ImGui.BeginTable(
+                    "PlaybackNeo2TopRow",
+                    2,
+                    ImGuiTableFlags.SizingStretchSame |
+                    ImGuiTableFlags.NoSavedSettings))
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableSetColumnIndex(0);
+                    DrawSpreadCompact("2nd Stack / Spread", neo2Truth);
+
+                    ImGui.TableSetColumnIndex(1);
+                    DrawCompactMechanic(
+                        AccelIcon,
+                        "2nd Accel",
+                        GetAccelCalloutForTiming(AccelTiming.Long));
+
+                    ImGui.EndTable();
+                }
+
+                ImGui.Spacing();
+                DrawCompactMana(
+                    "Blizzard Charge",
+                    "ManaChargeIceCompact",
                     ref manaChargeIce);
-            },
-            3);
+            });
+    }
 
-        DrawOutputCard(
-            "SecondGazeResults",
+    private void DrawCompactGazeTwoChaosCard()
+    {
+        DrawCompactCard(
+            "PlaybackGaze2Chaos2",
+            "GAZE #2 + TSUNAMI",
             () =>
             {
-                DrawIconResultLine(
+                DrawCompactMechanic(
                     GazeIcon,
                     "2nd Gaze",
                     GetGazeCallout(neo2Truth));
-            },
-            1);
-
-        DrawChaosPlaybackCard(
-            "TsunamiPlayback",
-            TsunamiIcon,
-            "TSUNAMI / DYNAMIC FLUID",
-            GetTsunamiCallout());
-
-        DrawManaInputBreak(
-            "Mana Release: Lightning",
-            "ManaReleaseLightning",
-            ref manaReleaseLightning);
-
-        DrawManaInputBreak(
-            "Mana Release: Blizzard",
-            "ManaReleaseIce",
-            ref manaReleaseIce);
-
-        var lightningResult =
-            ResolveMana(
-                manaChargeLightning,
-                manaReleaseLightning);
-
-        var blizzardResult =
-            ResolveMana(
-                manaChargeIce,
-                manaReleaseIce);
-
-        DrawOutputCard(
-            "FinalManaResults",
-            () =>
-            {
-                DrawResultLine(
-                    "Lightning",
-                    TruthToString(lightningResult));
-
-                DrawResultLine(
-                    "Blizzard",
-                    TruthToString(blizzardResult));
 
                 ImGui.Spacing();
 
-                var manaCallout =
-                    GetFinalManaCallout(
-                        lightningResult,
-                        blizzardResult);
+                var resolution = GetTsunamiCallout();
+                var movementIcon = GetMovementIcon(resolution);
+                var movementText = GetMovementText(resolution);
 
-                var tsunamiCallout =
-                    GetFinalTsunamiCallout();
+                if (ImGui.BeginTable(
+                    "PlaybackGaze2Chaos2Bottom",
+                    2,
+                    ImGuiTableFlags.SizingStretchSame |
+                    ImGuiTableFlags.NoSavedSettings))
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableSetColumnIndex(0);
+                    DrawCompactMechanic(
+                        TsunamiIcon,
+                        "Mechanic",
+                        "TSUNAMI / DYNAMIC FLUID");
 
-                ImGui.Text(
-                    $"Final Mana: {manaCallout} + {tsunamiCallout}");
-            },
-            3,
-            compact: true);
+                    ImGui.TableSetColumnIndex(1);
+                    DrawCompactMechanic(
+                        movementIcon,
+                        "Resolve",
+                        movementText);
+
+                    ImGui.EndTable();
+                }
+            });
     }
 
-    private void DrawSpreadResultRow(string label, Truth truth)
+    private void DrawCompactChaosCard(
+        string id,
+        string title,
+        string mechanicIcon,
+        string mechanicText,
+        string resolution)
+    {
+        var movementIcon = GetMovementIcon(resolution);
+        var movementText = GetMovementText(resolution);
+
+        DrawCompactPairCard(
+            id,
+            title,
+            () => DrawCompactMechanic(
+                mechanicIcon,
+                "Mechanic",
+                mechanicText),
+            () => DrawCompactMechanic(
+                movementIcon,
+                "Resolve",
+                movementText));
+    }
+
+    private static string? GetMovementIcon(string resolution)
+    {
+        return resolution switch
+        {
+            "STAY" => DonutIcon,
+            "SPREAD" => BaitMidIcon,
+            _ => null
+        };
+    }
+
+    private static string GetMovementText(string resolution)
+    {
+        return resolution switch
+        {
+            "STAY" => "DONUT / STAY MID",
+            "SPREAD" => "BAIT MID → CHARIOT",
+            _ => "?"
+        };
+    }
+
+    private void DrawSpreadCompact(string label, Truth truth)
     {
         var result = GetSpreadCallout(truth);
         var icon = truth switch
@@ -1366,114 +1452,107 @@ public class MainWindow : Window, IDisposable
             _ => null
         };
 
-        DrawIconResultLine(icon, label, result);
+        DrawCompactMechanic(icon, label, result);
     }
 
-    private void DrawChaosPlaybackCard(
+    // ============================================================
+    // COMPACT PLAYBACK CARDS
+    // ============================================================
+
+    private void DrawCompactPairCard(
         string id,
-        string mechanicIcon,
-        string mechanicLabel,
-        string resolution)
+        string title,
+        Action left,
+        Action right)
     {
-        var movementIcon = resolution switch
-        {
-            "STAY" => DonutIcon,
-            "SPREAD" => BaitMidIcon,
-            _ => null
-        };
-
-        var movementText = resolution switch
-        {
-            "STAY" => "DONUT / STAY MID",
-            "SPREAD" => "BAIT MID → CHARIOT",
-            _ => "?"
-        };
-
-        DrawOutputCard(
+        DrawCompactCard(
             id,
+            title,
             () =>
             {
-                DrawIconResultLine(
-                    mechanicIcon,
-                    "Mechanic",
-                    mechanicLabel);
+                if (!ImGui.BeginTable(
+                    $"{id}_Pair",
+                    2,
+                    ImGuiTableFlags.SizingStretchSame |
+                    ImGuiTableFlags.NoSavedSettings))
+                {
+                    return;
+                }
 
-                DrawIconResultLine(
-                    movementIcon,
-                    "Resolve",
-                    movementText);
-            },
-            2);
+                ImGui.TableNextRow();
+
+                ImGui.TableSetColumnIndex(0);
+                left();
+
+                ImGui.TableSetColumnIndex(1);
+                right();
+
+                ImGui.EndTable();
+            });
     }
 
-    // ============================================================
-    // OUTPUT CARDS
-    // ============================================================
-
-    private void DrawOutputCard(
+    private void DrawCompactCard(
         string id,
-        Action contents,
-        int rowCount,
-        bool compact = false)
+        string title,
+        Action contents)
     {
-        ImGui.PushStyleColor(
-            ImGuiCol.ChildBg,
-            CardBackground);
+        ImGui.PushStyleColor(ImGuiCol.TableBorderStrong, CardBorder);
+        ImGui.PushStyleColor(ImGuiCol.TableBorderLight, CardBorder);
 
-        ImGui.PushStyleColor(
-            ImGuiCol.Border,
-            CardBorder);
-
-        var scale = ImGuiHelpers.GlobalScale;
-        var rowHeight = compact
-            ? ImGui.GetTextLineHeightWithSpacing()
-            : 44 * scale;
-
-        var cardHeight =
-            (rowHeight * rowCount)
-            + (18 * scale);
-
-        ImGui.BeginChild(
+        if (ImGui.BeginTable(
             id,
-            new Vector2(0, cardHeight),
-            true);
+            1,
+            ImGuiTableFlags.Borders |
+            ImGuiTableFlags.SizingStretchProp |
+            ImGuiTableFlags.NoSavedSettings))
+        {
+            ImGui.TableNextRow();
+            ImGui.TableSetColumnIndex(0);
 
-        contents();
+            ImGui.TextDisabled(title);
+            ImGui.Spacing();
+            contents();
 
-        ImGui.EndChild();
+            ImGui.EndTable();
+        }
 
         ImGui.PopStyleColor(2);
-
         ImGui.Spacing();
     }
 
-    private void DrawIconResultLine(
+    private void DrawCompactMechanic(
         string? iconFile,
         string label,
         string result)
     {
         var scale = ImGuiHelpers.GlobalScale;
-        var iconSize = 34 * scale;
+        var iconSize = 26 * scale;
 
         if (!string.IsNullOrWhiteSpace(iconFile))
         {
             DrawEmbeddedIcon(iconFile, iconSize);
             ImGui.SameLine();
         }
-        else
-        {
-            // Keep text aligned with rows that do have an icon.
-            ImGui.Dummy(new Vector2(iconSize, iconSize));
-            ImGui.SameLine();
-        }
 
-        var textStartY = ImGui.GetCursorPosY();
-        var textHeight = ImGui.GetTextLineHeightWithSpacing() * 2;
-        if (iconSize > textHeight)
-        {
-            ImGui.SetCursorPosY(textStartY + ((iconSize - textHeight) * 0.5f));
-        }
+        ImGui.BeginGroup();
+        ImGui.TextDisabled(label);
+        ImGui.Text(result);
+        ImGui.EndGroup();
+    }
 
+    private void DrawCompactMana(
+        string label,
+        string id,
+        ref Truth value)
+    {
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextDisabled(label);
+        ImGui.SameLine();
+        DrawTruthButtons(id, ref value);
+    }
+
+    private void DrawCompactTextResult(string label, string result)
+    {
         ImGui.TextDisabled(label);
         ImGui.Text(result);
     }
@@ -1494,15 +1573,6 @@ public class MainWindow : Window, IDisposable
         {
             ImGui.Dummy(new Vector2(size, size));
         }
-    }
-
-    private void DrawManaInline(
-        string title,
-        string id,
-        ref Truth value)
-    {
-        ImGui.TextDisabled(title);
-        DrawTruthButtons(id, ref value);
     }
 
     private void DrawResultLine(

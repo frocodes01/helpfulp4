@@ -2,10 +2,10 @@
   "Author": "Frocodes",
   "Name": "Helpfulp4",
   "InternalName": "umadp4helper",
-  "AssemblyVersion": "0.0.0.1",
-  "Description": "\r\n      Input helper for DMU p4\r\n    ",
+  "AssemblyVersion": "0.0.0.2",
+  "Description": "DMU P4 assignment helper with manual and experimental automatic mechanic detection.",
   "ApplicableVersion": "any",
-  "RepoUrl": "\r\n      https://github.com/frocodes01/helpfulp4\r\n    ",
+  "RepoUrl": "https://github.com/frocodes01/helpfulp4",
   "Tags": [
     "dmu",
     "p4",
@@ -16,6 +16,6 @@
   "LoadSync": false,
   "CanUnloadAsync": false,
   "LoadPriority": 0,
-  "Punchline": "\r\n      What worked for me hopefully works for you in DMU p4\r\n    ",
+  "Punchline": "What worked for me hopefully works for you in DMU p4",
   "AcceptsFeedback": true
 }
