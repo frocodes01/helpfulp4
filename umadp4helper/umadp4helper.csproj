@@ -2,7 +2,7 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
 
   <PropertyGroup>
-    <Version>0.0.0.3</Version>
+    <Version>0.0.0.4</Version>
     <Author>Frocodes</Author>
     <Name>Helpfulp4</Name>
     <Punchline>What worked for me hopefully works for you in DMU p4</Punchline>

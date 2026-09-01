@@ -2,7 +2,7 @@
   "Author": "Frocodes",
   "Name": "Helpfulp4",
   "InternalName": "umadp4helper",
-  "AssemblyVersion": "0.0.0.3",
+  "AssemblyVersion": "0.0.0.4",
   "Description": "DMU P4 assignment helper with manual and experimental automatic mechanic detection.",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/frocodes01/helpfulp4",

@@ -1299,14 +1299,10 @@ public class MainWindow : Window, IDisposable
                 {
                     ImGui.TableNextRow();
                     ImGui.TableSetColumnIndex(0);
-                    DrawCompactTextResult(
-                        "Lightning",
-                        TruthToString(lightningResult));
+                    ImGui.Text($"Lightning: {TruthToString(lightningResult)}");
 
                     ImGui.TableSetColumnIndex(1);
-                    DrawCompactTextResult(
-                        "Blizzard",
-                        TruthToString(blizzardResult));
+                    ImGui.Text($"Blizzard: {TruthToString(blizzardResult)}");
 
                     ImGui.EndTable();
                 }
@@ -1338,7 +1334,7 @@ public class MainWindow : Window, IDisposable
                 {
                     ImGui.TableNextRow();
                     ImGui.TableSetColumnIndex(0);
-                    DrawSpreadCompact("2nd Stack / Spread", neo2Truth);
+                    DrawSpreadCompact("2nd Spread", neo2Truth);
 
                     ImGui.TableSetColumnIndex(1);
                     DrawCompactMechanic(
@@ -1509,8 +1505,8 @@ public class MainWindow : Window, IDisposable
             ImGui.TableNextRow();
             ImGui.TableSetColumnIndex(0);
 
-            ImGui.TextDisabled(title);
-            ImGui.Spacing();
+            // Playback order already communicates progression, so omit
+            // redundant section headers to save vertical space.
             contents();
 
             ImGui.EndTable();
