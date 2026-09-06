@@ -27,6 +27,15 @@ public class MainWindow : Window, IDisposable
         Long
     }
 
+    private enum NeoDebuff
+    {
+        Unknown,
+        ShortWater,
+        LongWater,
+        ShortLightning,
+        LongLightning
+    }
+
     private enum AccelTiming
     {
         Unknown,
@@ -92,9 +101,14 @@ public class MainWindow : Window, IDisposable
     // CURRENT STATE
     // ============================================================
 
+    // View
+    private bool expandedView;
+
     // Neo #1
     private Truth neo1Truth = Truth.Unknown;
     private Duration neo1Duration = Duration.Unknown;
+    private NeoDebuff neo1Debuff = NeoDebuff.Unknown;
+    private bool neo1Gaze;
     private AccelTiming neo1Accel = AccelTiming.Unknown;
 
     // Chaos #1
@@ -104,6 +118,8 @@ public class MainWindow : Window, IDisposable
     // Neo #2
     private Truth neo2Truth = Truth.Unknown;
     private Duration neo2Duration = Duration.Unknown;
+    private NeoDebuff neo2Debuff = NeoDebuff.Unknown;
+    private bool neo2Gaze;
     private AccelTiming neo2Accel = AccelTiming.Unknown;
 
     // Chaos #2
@@ -125,6 +141,8 @@ public class MainWindow : Window, IDisposable
     {
         public Truth Neo1Truth;
         public Duration Neo1Duration;
+        public NeoDebuff Neo1Debuff;
+        public bool Neo1Gaze;
         public AccelTiming Neo1Accel;
 
         public Truth Chaos1Truth;
@@ -132,6 +150,8 @@ public class MainWindow : Window, IDisposable
 
         public Truth Neo2Truth;
         public Duration Neo2Duration;
+        public NeoDebuff Neo2Debuff;
+        public bool Neo2Gaze;
         public AccelTiming Neo2Accel;
 
         public Truth Chaos2Truth;
@@ -152,6 +172,8 @@ public class MainWindow : Window, IDisposable
         {
             Neo1Truth = neo1Truth,
             Neo1Duration = neo1Duration,
+            Neo1Debuff = neo1Debuff,
+            Neo1Gaze = neo1Gaze,
             Neo1Accel = neo1Accel,
 
             Chaos1Truth = chaos1Truth,
@@ -159,6 +181,8 @@ public class MainWindow : Window, IDisposable
 
             Neo2Truth = neo2Truth,
             Neo2Duration = neo2Duration,
+            Neo2Debuff = neo2Debuff,
+            Neo2Gaze = neo2Gaze,
             Neo2Accel = neo2Accel,
 
             Chaos2Truth = chaos2Truth,
@@ -181,6 +205,8 @@ public class MainWindow : Window, IDisposable
 
         neo1Truth = undoState.Neo1Truth;
         neo1Duration = undoState.Neo1Duration;
+        neo1Debuff = undoState.Neo1Debuff;
+        neo1Gaze = undoState.Neo1Gaze;
         neo1Accel = undoState.Neo1Accel;
 
         chaos1Truth = undoState.Chaos1Truth;
@@ -188,6 +214,8 @@ public class MainWindow : Window, IDisposable
 
         neo2Truth = undoState.Neo2Truth;
         neo2Duration = undoState.Neo2Duration;
+        neo2Debuff = undoState.Neo2Debuff;
+        neo2Gaze = undoState.Neo2Gaze;
         neo2Accel = undoState.Neo2Accel;
 
         chaos2Truth = undoState.Chaos2Truth;
@@ -344,6 +372,19 @@ public class MainWindow : Window, IDisposable
             SaveUndoState();
             ResetAll(false);
             ResetAutoTracking();
+        }
+
+        ImGui.Spacing();
+        ImGui.Text("View:");
+        ImGui.SameLine();
+        if (ImGui.RadioButton("Compact", !expandedView))
+        {
+            expandedView = false;
+        }
+        ImGui.SameLine();
+        if (ImGui.RadioButton("Expanded", expandedView))
+        {
+            expandedView = true;
         }
 
         ImGui.Spacing();
@@ -570,6 +611,7 @@ public class MainWindow : Window, IDisposable
                 : Duration.Long;
 
             ApplyNeoDuration(latestNeoTellIndex, duration);
+            ApplyNeoDebuff(latestNeoTellIndex, statusId, duration);
             autoLastEvent = $"Neo #{latestNeoTellIndex}: {GetAutoStatusName(statusId)} {duration} ({remainingTime:0.0}s).";
             return;
         }
@@ -611,8 +653,25 @@ public class MainWindow : Window, IDisposable
         if (statusId == GazeStatusId)
         {
             gazeCount++;
-            var gazeIndex = Math.Min(gazeCount, 2);
-            autoLastEvent = $"Gaze #{gazeIndex} detected ({remainingTime:0.0}s).";
+
+            if (!HasFreshNeoTell(now))
+            {
+                autoLastEvent = $"Gaze detected ({remainingTime:0.0}s), but no fresh Neo tell was captured.";
+                return;
+            }
+
+            if (latestNeoTellIndex == 1)
+            {
+                neo1Gaze = true;
+                neo2Gaze = false;
+            }
+            else if (latestNeoTellIndex == 2)
+            {
+                neo2Gaze = true;
+                neo1Gaze = false;
+            }
+
+            autoLastEvent = $"Neo #{latestNeoTellIndex}: personal Gaze detected ({remainingTime:0.0}s).";
         }
     }
 
@@ -704,6 +763,36 @@ public class MainWindow : Window, IDisposable
         {
             neo2Duration = duration;
             neo1Duration = duration == Duration.Short ? Duration.Long : Duration.Short;
+        }
+    }
+
+
+    private void ApplyNeoDebuff(int index, uint statusId, Duration duration)
+    {
+        var debuff = statusId switch
+        {
+            WaterStatusId when duration == Duration.Short => NeoDebuff.ShortWater,
+            WaterStatusId when duration == Duration.Long => NeoDebuff.LongWater,
+            LightningStatusId when duration == Duration.Short => NeoDebuff.ShortLightning,
+            LightningStatusId when duration == Duration.Long => NeoDebuff.LongLightning,
+            _ => NeoDebuff.Unknown
+        };
+
+        if (index == 1)
+        {
+            neo1Debuff = debuff;
+            if (debuff != NeoDebuff.Unknown)
+            {
+                neo2Debuff = NeoDebuff.Unknown;
+            }
+        }
+        else if (index == 2)
+        {
+            neo2Debuff = debuff;
+            if (debuff != NeoDebuff.Unknown)
+            {
+                neo1Debuff = NeoDebuff.Unknown;
+            }
         }
     }
 
@@ -826,28 +915,40 @@ public class MainWindow : Window, IDisposable
         ref AccelTiming accel,
         bool isNeo1)
     {
-        ImGui.Text(title);
-        ImGui.Spacing();
-
-        DrawLabel("Cast");
-
-        DrawTruthButtons(
+        DrawSectionTruthHeader(
+            title,
             $"{title}_Truth",
             ref truth);
 
-        DrawLabel("Water / Lightning");
-
-        DrawDurationButtons(
-            title,
-            ref duration,
-            isNeo1);
+        if (expandedView)
+        {
+            if (isNeo1)
+            {
+                DrawLabel("Water");
+                DrawExpandedDebuffButtons(title, ref neo1Debuff, true, true);
+                DrawLabel("Lightning");
+                DrawExpandedDebuffButtons(title, ref neo1Debuff, false, true);
+                DrawLabel("Gaze");
+                DrawYesNoButtons($"{title}_Gaze", ref neo1Gaze, true);
+            }
+            else
+            {
+                DrawLabel("Water");
+                DrawExpandedDebuffButtons(title, ref neo2Debuff, true, false);
+                DrawLabel("Lightning");
+                DrawExpandedDebuffButtons(title, ref neo2Debuff, false, false);
+                DrawLabel("Gaze");
+                DrawYesNoButtons($"{title}_Gaze", ref neo2Gaze, false);
+            }
+        }
+        else
+        {
+            DrawLabel("Water / Lightning");
+            DrawDurationButtons(title, ref duration, isNeo1);
+        }
 
         DrawLabel("Accel");
-
-        DrawAccelButtons(
-            title,
-            ref accel,
-            isNeo1);
+        DrawAccelButtons(title, ref accel, isNeo1);
     }
 
     private void DrawChaosSection(
@@ -856,12 +957,8 @@ public class MainWindow : Window, IDisposable
         ref ChaosElement element,
         bool isChaos1)
     {
-        ImGui.Text(title);
-        ImGui.Spacing();
-
-        DrawLabel("Cast");
-
-        DrawTruthButtons(
+        DrawSectionTruthHeader(
+            title,
             $"{title}_Truth",
             ref truth);
 
@@ -871,6 +968,22 @@ public class MainWindow : Window, IDisposable
             title,
             ref element,
             isChaos1);
+    }
+
+    private void DrawSectionTruthHeader(
+        string title,
+        string id,
+        ref Truth truth)
+    {
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text(title);
+
+        ImGui.SameLine(
+            145 * ImGuiHelpers.GlobalScale);
+
+        DrawTruthButtons(
+            id,
+            ref truth);
     }
 
     private void DrawLabel(string text)
@@ -1042,6 +1155,132 @@ public class MainWindow : Window, IDisposable
                         Duration.Short;
                 }
             }
+        }
+    }
+
+    private void DrawExpandedDebuffButtons(
+        string title,
+        ref NeoDebuff value,
+        bool water,
+        bool isNeo1)
+    {
+        var shortValue = water ? NeoDebuff.ShortWater : NeoDebuff.ShortLightning;
+        var longValue = water ? NeoDebuff.LongWater : NeoDebuff.LongLightning;
+        var suffix = water ? "Water" : "Lightning";
+
+        var rowHasSelection = value == shortValue || value == longValue;
+
+        if (DrawChoiceButton($"Short##{title}_{suffix}_Short", value == shortValue))
+        {
+            if (value != shortValue)
+            {
+                SaveUndoState();
+                value = shortValue;
+
+                // A player can only receive one Water/Lightning debuff across
+                // the two Neo Exdeath sets. Selecting one here forces the
+                // other Neo's Water and Lightning rows to None.
+                if (isNeo1)
+                {
+                    neo2Debuff = NeoDebuff.Unknown;
+                }
+                else
+                {
+                    neo1Debuff = NeoDebuff.Unknown;
+                }
+
+                SyncLegacyDurationFromDebuff(title, value);
+            }
+        }
+
+        ImGui.SameLine();
+        if (DrawChoiceButton($"Long##{title}_{suffix}_Long", value == longValue))
+        {
+            if (value != longValue)
+            {
+                SaveUndoState();
+                value = longValue;
+
+                if (isNeo1)
+                {
+                    neo2Debuff = NeoDebuff.Unknown;
+                }
+                else
+                {
+                    neo1Debuff = NeoDebuff.Unknown;
+                }
+
+                SyncLegacyDurationFromDebuff(title, value);
+            }
+        }
+
+        ImGui.SameLine();
+        if (DrawChoiceButton($"None##{title}_{suffix}_None", !rowHasSelection))
+        {
+            // If the other element is selected on this same Neo, this row is
+            // already None and clicking it should not erase that selection.
+            if (rowHasSelection)
+            {
+                SaveUndoState();
+                value = NeoDebuff.Unknown;
+                SyncLegacyDurationFromDebuff(title, value);
+            }
+        }
+    }
+
+    private void DrawYesNoButtons(
+        string id,
+        ref bool value,
+        bool isNeo1)
+    {
+        if (DrawChoiceButton($"Yes##{id}_Yes", value))
+        {
+            if (!value)
+            {
+                SaveUndoState();
+                value = true;
+
+                // A player can only receive Shriek/Gaze on one Neo set.
+                // Selecting Yes here automatically makes the other set No.
+                if (isNeo1)
+                {
+                    neo2Gaze = false;
+                }
+                else
+                {
+                    neo1Gaze = false;
+                }
+            }
+        }
+
+        ImGui.SameLine();
+        if (DrawChoiceButton($"No##{id}_No", !value))
+        {
+            if (value)
+            {
+                SaveUndoState();
+                value = false;
+            }
+        }
+    }
+
+    private void SyncLegacyDurationFromDebuff(string title, NeoDebuff debuff)
+    {
+        var duration = debuff is NeoDebuff.ShortWater or NeoDebuff.ShortLightning
+            ? Duration.Short
+            : debuff is NeoDebuff.LongWater or NeoDebuff.LongLightning
+                ? Duration.Long
+                : Duration.Unknown;
+
+        if (title.Contains("#1"))
+        {
+            neo1Duration = duration;
+            if (duration != Duration.Unknown) neo2Duration = duration == Duration.Short ? Duration.Long : Duration.Short;
+        }
+        else
+        {
+            neo2Duration = duration;
+            if (duration != Duration.Unknown) neo1Duration = duration == Duration.Short ? Duration.Long : Duration.Short;
         }
     }
 
@@ -1232,23 +1471,49 @@ public class MainWindow : Window, IDisposable
         DrawCompactPairCard(
             "PlaybackNeo1",
             "NEO #1",
-            () => DrawSpreadCompact("1st Spread", neo1Truth),
+            () =>
+            {
+                if (expandedView)
+                {
+                    DrawCompactTextResult(
+                        "1st Resolve",
+                        GetPersonalSpreadCallout(neo1Debuff));
+                }
+                else
+                {
+                    DrawSpreadCompact(
+                        "1st Spread",
+                        neo1Truth);
+                }
+            },
             () => DrawCompactMechanic(
                 AccelIcon,
                 "1st Accel",
                 GetAccelCalloutForTiming(AccelTiming.Short)));
 
-        DrawCompactPairCard(
+        DrawCompactCard(
             "PlaybackGaze1Mana1",
             "GAZE #1 + MANA CHARGE #1",
-            () => DrawCompactMechanic(
-                GazeIcon,
-                "Gaze",
-                GetGazeCallout(neo1Truth)),
-            () => DrawCompactMana(
-                "Lightning",
-                "ManaChargeLightningCompact",
-                ref manaChargeLightning));
+            () =>
+            {
+                DrawCompactMechanic(
+                    GazeIcon,
+                    "Gaze",
+                    expandedView
+                        ? GetPersonalGazeCallout(neo1Truth, neo1Gaze)
+                        : GetGazeCallout(neo1Truth));
+
+                // Keep the charge selector directly below the Gaze resolve,
+                // matching the left-aligned interaction pattern used by Blizzard.
+                ImGui.Spacing();
+                ImGui.Separator();
+                ImGui.Spacing();
+
+                DrawCompactMana(
+                    "Lightning Charge",
+                    "ManaChargeLightningCompact",
+                    ref manaChargeLightning);
+            });
 
         DrawCompactChaosCard(
             "PlaybackInferno",
@@ -1292,8 +1557,10 @@ public class MainWindow : Window, IDisposable
             "FINAL",
             () =>
             {
-                ImGui.Text($"Lightning: {TruthToString(lightningResult)}");
-                ImGui.Text($"Blizzard: {TruthToString(blizzardResult)}");
+                // Keep both resolved charge states on a single scan-friendly line.
+                ImGui.Text(
+                    $"Lightning: {TruthToString(lightningResult)}    " +
+                    $"Blizzard: {TruthToString(blizzardResult)}");
 
                 var manaCallout = GetFinalManaCallout(
                     lightningResult,
@@ -1302,8 +1569,12 @@ public class MainWindow : Window, IDisposable
                 var tsunamiCallout = GetFinalTsunamiCallout();
 
                 ImGui.Spacing();
-                ImGui.TextDisabled("Final movement");
-                ImGui.Text($"{manaCallout} + {tsunamiCallout}");
+
+                // Make the actual final instruction more prominent.
+                // 1.15x is roughly +2 px when the base UI font is around 12-14 px.
+                ImGui.SetWindowFontScale(1.15f);
+                ImGui.Text($"Final Movement  {manaCallout} + {tsunamiCallout}");
+                ImGui.SetWindowFontScale(1.00f);
             });
     }
 
@@ -1322,7 +1593,8 @@ public class MainWindow : Window, IDisposable
                 {
                     ImGui.TableNextRow();
                     ImGui.TableSetColumnIndex(0);
-                    DrawSpreadCompact("2nd Spread", neo2Truth);
+                    if (expandedView) DrawCompactTextResult("2nd Resolve", GetPersonalSpreadCallout(neo2Debuff));
+                    else DrawSpreadCompact("2nd Spread", neo2Truth);
 
                     ImGui.TableSetColumnIndex(1);
                     DrawCompactMechanic(
@@ -1351,7 +1623,7 @@ public class MainWindow : Window, IDisposable
                 DrawCompactMechanic(
                     GazeIcon,
                     "2nd Gaze",
-                    GetGazeCallout(neo2Truth));
+                    expandedView ? GetPersonalGazeCallout(neo2Truth, neo2Gaze) : GetGazeCallout(neo2Truth));
 
                 ImGui.Spacing();
 
@@ -1639,6 +1911,29 @@ public class MainWindow : Window, IDisposable
         };
     }
 
+
+    private string GetPersonalSpreadCallout(NeoDebuff debuff)
+    {
+        return debuff switch
+        {
+            NeoDebuff.ShortLightning or NeoDebuff.LongLightning => "SPREAD",
+            NeoDebuff.ShortWater or NeoDebuff.LongWater => "STACK",
+
+            // If the player has no personal Water/Lightning on this Neo,
+            // they help the stack player survive.
+            NeoDebuff.Unknown => "HELP STACK",
+
+            _ => "HELP STACK"
+        };
+    }
+
+    private string GetPersonalGazeCallout(Truth truth, bool hasGaze)
+    {
+        var gaze = GetGazeCallout(truth);
+        if (gaze == "?") return "?";
+        return hasGaze ? $"MID + {gaze}" : gaze;
+    }
+
     // ============================================================
     // ACCEL CALCULATIONS
     // ============================================================
@@ -1850,6 +2145,9 @@ public class MainWindow : Window, IDisposable
         neo1Duration =
             Duration.Unknown;
 
+        neo1Debuff = NeoDebuff.Unknown;
+        neo1Gaze = false;
+
         neo1Accel =
             AccelTiming.Unknown;
 
@@ -1864,6 +2162,9 @@ public class MainWindow : Window, IDisposable
 
         neo2Duration =
             Duration.Unknown;
+
+        neo2Debuff = NeoDebuff.Unknown;
+        neo2Gaze = false;
 
         neo2Accel =
             AccelTiming.Unknown;
