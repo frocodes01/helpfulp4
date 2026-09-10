@@ -185,39 +185,6 @@ This plugin is currently intended to be loaded as a Dalamud development plugin.
 - Final Fantasy XIV
 - XIVLauncher / Dalamud
 - .NET SDK
-- VS Code or Visual Studio
-- Dalamud SamplePlugin development environment
-
-### Build
-
-From the plugin project directory:
-
-```powershell
-dotnet build
-```
-
-The compiled DLL will be created under the project's `bin` directory.
-
-Example:
-
-```text
-UmadP4Helper\bin\Debug\UmadP4Helper.dll
-```
-
-### Load in Dalamud
-
-1. Launch FFXIV with Dalamud.
-2. Open:
-   ```text
-   /xlsettings
-   ```
-3. Go to **Experimental**.
-4. Add the compiled DLL under **Dev Plugin Locations**.
-5. Open:
-   ```text
-   /xlplugins
-   ```
-6. Enable the development plugin.
 
 ## Usage
 
