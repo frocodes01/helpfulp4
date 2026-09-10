@@ -4,6 +4,48 @@ An in-game Dalamud helper for **FFXIV UMAD Phase 4**.
 
 This plugin recreates and streamlines the decision-making flow of the WTFDIG P4 helper inside Final Fantasy XIV, with a focus on quick manual inputs and clear text playback.
 
+Yep — the repo install section should explicitly tell people to add the custom repository JSON before trying to find the plugin.
+
+I’d update the README/install description to something like:
+
+## Installation
+
+This plugin is installed through Dalamud using a custom plugin repository.
+
+1. In FFXIV, open Dalamud settings with:
+
+```text
+/xlsettings
+```
+
+2. Go to:
+
+```text
+Experimental → Custom Plugin Repositories
+```
+
+3. Add this repository URL:
+
+```text
+https://raw.githubusercontent.com/frocodes01/helpfulp4/master/repo.json
+```
+
+4. Save/close Dalamud settings.
+
+5. Open the Plugin Installer with:
+
+```text
+/xlplugins
+```
+
+6. Search for **UMAD P4 Helper** and install it.
+
+7. Open the helper with:
+
+```text
+/p4helper
+```
+
 ## Features
 
 - `/p4helper` command to open the helper window
