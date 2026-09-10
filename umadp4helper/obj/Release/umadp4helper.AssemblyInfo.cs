@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyDescriptionAttribute(("DMU P4 assignment helper with manual and experimental automatic mechanic detectio" +
     "n."))]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.0.0.5")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.0.0.5+6be30dee93919c370a7d432dc4437d7220762bdc")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.0.0.5+805a6ca6285de4289738f775326f59bce0e7bbad")]
 [assembly: System.Reflection.AssemblyProductAttribute("umadp4helper")]
 [assembly: System.Reflection.AssemblyTitleAttribute("umadp4helper")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.0.0.5")]

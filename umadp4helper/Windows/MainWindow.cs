@@ -1477,13 +1477,13 @@ public class MainWindow : Window, IDisposable
                 {
                     DrawCompactTextResult(
                         "1st Resolve",
-                        GetPersonalSpreadCallout(neo1Debuff));
+                        GetPersonalResolveForDuration(Duration.Short));
                 }
                 else
                 {
                     DrawSpreadCompact(
                         "1st Spread",
-                        neo1Truth);
+                        GetNeoTruthForDuration(Duration.Short));
                 }
             },
             () => DrawCompactMechanic(
@@ -1593,8 +1593,18 @@ public class MainWindow : Window, IDisposable
                 {
                     ImGui.TableNextRow();
                     ImGui.TableSetColumnIndex(0);
-                    if (expandedView) DrawCompactTextResult("2nd Resolve", GetPersonalSpreadCallout(neo2Debuff));
-                    else DrawSpreadCompact("2nd Spread", neo2Truth);
+                    if (expandedView)
+                    {
+                        DrawCompactTextResult(
+                            "2nd Resolve",
+                            GetPersonalResolveForDuration(Duration.Long));
+                    }
+                    else
+                    {
+                        DrawSpreadCompact(
+                            "2nd Spread",
+                            GetNeoTruthForDuration(Duration.Long));
+                    }
 
                     ImGui.TableSetColumnIndex(1);
                     DrawCompactMechanic(
@@ -1912,17 +1922,63 @@ public class MainWindow : Window, IDisposable
     }
 
 
-    private string GetPersonalSpreadCallout(NeoDebuff debuff)
+    private Truth GetNeoTruthForDuration(Duration duration)
     {
+        // The first/second Water-Lightning resolves are ordered by SHORT/LONG,
+        // not by whether the tell came from Neo Exdeath #1 or #2.
+        if (neo1Duration == duration)
+        {
+            return neo1Truth;
+        }
+
+        if (neo2Duration == duration)
+        {
+            return neo2Truth;
+        }
+
+        return Truth.Unknown;
+    }
+
+    private NeoDebuff GetPersonalDebuffForDuration(Duration duration)
+    {
+        var neo1Matches = duration switch
+        {
+            Duration.Short => neo1Debuff is NeoDebuff.ShortWater or NeoDebuff.ShortLightning,
+            Duration.Long => neo1Debuff is NeoDebuff.LongWater or NeoDebuff.LongLightning,
+            _ => false
+        };
+
+        if (neo1Matches)
+        {
+            return neo1Debuff;
+        }
+
+        var neo2Matches = duration switch
+        {
+            Duration.Short => neo2Debuff is NeoDebuff.ShortWater or NeoDebuff.ShortLightning,
+            Duration.Long => neo2Debuff is NeoDebuff.LongWater or NeoDebuff.LongLightning,
+            _ => false
+        };
+
+        if (neo2Matches)
+        {
+            return neo2Debuff;
+        }
+
+        return NeoDebuff.Unknown;
+    }
+
+    private string GetPersonalResolveForDuration(Duration duration)
+    {
+        var debuff = GetPersonalDebuffForDuration(duration);
+
         return debuff switch
         {
             NeoDebuff.ShortLightning or NeoDebuff.LongLightning => "SPREAD",
             NeoDebuff.ShortWater or NeoDebuff.LongWater => "STACK",
 
-            // If the player has no personal Water/Lightning on this Neo,
-            // they help the stack player survive.
-            NeoDebuff.Unknown => "HELP STACK",
-
+            // The player has no personal element at this timing, so they
+            // assist the player resolving the stack.
             _ => "HELP STACK"
         };
     }
