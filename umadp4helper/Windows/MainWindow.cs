@@ -552,21 +552,15 @@ public class MainWindow : Window, IDisposable
         var currentStatusIds = new HashSet<uint>();
         var display = new List<string>();
 
-        var localContentId = Plugin.PlayerState.ContentId;
-        var localEntityId = Plugin.ObjectTable.LocalPlayer?.EntityId ?? 0;
+        // Read personal debuffs directly from the local battle character.
+        // The previous implementation read PartyList member.Statuses. That path
+        // was not reliably exposing the P4 personal statuses even though boss
+        // status detection was working.
+        var localPlayer = Plugin.ObjectTable.LocalPlayer;
 
-        foreach (var member in Plugin.PartyList)
+        if (localPlayer is IBattleChara battleChara)
         {
-            var isLocal =
-                (localContentId != 0 && member.ContentId == localContentId) ||
-                (localEntityId != 0 && member.EntityId == localEntityId);
-
-            if (!isLocal)
-            {
-                continue;
-            }
-
-            foreach (var status in member.Statuses)
+            foreach (var status in battleChara.StatusList)
             {
                 if (!IsAutoWatchedStatus(status.StatusId))
                 {
@@ -574,15 +568,17 @@ public class MainWindow : Window, IDisposable
                 }
 
                 currentStatusIds.Add(status.StatusId);
-                display.Add($"{GetAutoStatusName(status.StatusId)} {status.RemainingTime:0.0}s");
+                display.Add(
+                    $"{GetAutoStatusName(status.StatusId)} {status.RemainingTime:0.0}s");
 
                 if (!activeLocalStatusesLastFrame.Contains(status.StatusId))
                 {
-                    HandleNewAutoStatus(status.StatusId, status.RemainingTime, now);
+                    HandleNewAutoStatus(
+                        status.StatusId,
+                        status.RemainingTime,
+                        now);
                 }
             }
-
-            break;
         }
 
         autoActiveDebuffs = display.Count > 0
@@ -590,6 +586,7 @@ public class MainWindow : Window, IDisposable
             : "No watched debuffs detected.";
 
         activeLocalStatusesLastFrame.Clear();
+
         foreach (var statusId in currentStatusIds)
         {
             activeLocalStatusesLastFrame.Add(statusId);
@@ -1971,16 +1968,46 @@ public class MainWindow : Window, IDisposable
     private string GetPersonalResolveForDuration(Duration duration)
     {
         var debuff = GetPersonalDebuffForDuration(duration);
+        var truth = GetNeoTruthForDuration(duration);
 
-        return debuff switch
+        // No personal Water/Lightning at this timing means help the stack.
+        if (debuff == NeoDebuff.Unknown)
         {
-            NeoDebuff.ShortLightning or NeoDebuff.LongLightning => "SPREAD",
-            NeoDebuff.ShortWater or NeoDebuff.LongWater => "STACK",
+            return "HELP STACK";
+        }
 
-            // The player has no personal element at this timing, so they
-            // assist the player resolving the stack.
-            _ => "HELP STACK"
-        };
+        // Compact mode already determines which element spreads from Neo truth:
+        // Real -> Lightning spreads
+        // Fake -> Water spreads
+        if (truth == Truth.Unknown)
+        {
+            return "?";
+        }
+
+        var hasLightning =
+            debuff is NeoDebuff.ShortLightning or NeoDebuff.LongLightning;
+
+        var hasWater =
+            debuff is NeoDebuff.ShortWater or NeoDebuff.LongWater;
+
+        var spreadingElementIsLightning =
+            truth == Truth.Real;
+
+        if (hasLightning)
+        {
+            return spreadingElementIsLightning
+                ? "SPREAD"
+                : "STACK";
+        }
+
+        if (hasWater)
+        {
+            return spreadingElementIsLightning
+                ? "STACK"
+                : "SPREAD";
+        }
+
+        return "?";
     }
 
     private string GetPersonalGazeCallout(Truth truth, bool hasGaze)
