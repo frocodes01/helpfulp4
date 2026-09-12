@@ -75,13 +75,13 @@
     "C:\\Users\\rafae\\.nuget\\packages\\": {}
   },
   "project": {
-    "version": "0.0.0.5",
+    "version": "0.0.0.8",
     "restore": {
-      "projectUniqueName": "C:\\Users\\rafae\\OneDrive\\Documents\\GitHub\\smarterp4\\umadp4helper\\umadp4helper.csproj",
+      "projectUniqueName": "C:\\Users\\rafae\\helpfulp4\\umadp4helper\\umadp4helper.csproj",
       "projectName": "umadp4helper",
-      "projectPath": "C:\\Users\\rafae\\OneDrive\\Documents\\GitHub\\smarterp4\\umadp4helper\\umadp4helper.csproj",
+      "projectPath": "C:\\Users\\rafae\\helpfulp4\\umadp4helper\\umadp4helper.csproj",
       "packagesPath": "C:\\Users\\rafae\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\rafae\\OneDrive\\Documents\\GitHub\\smarterp4\\umadp4helper\\obj\\",
+      "outputPath": "C:\\Users\\rafae\\helpfulp4\\umadp4helper\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\rafae\\AppData\\Roaming\\NuGet\\NuGet.Config"

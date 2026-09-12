@@ -7,3 +7,12 @@ C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\UmadP4Helper\obj\Debug\umadp4
 C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\UmadP4Helper\obj\Debug\umadp4helper.csproj.CoreCompileInputs.cache
 C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\UmadP4Helper\obj\Debug\umadp4helper.sourcelink.json
 C:\Users\rafae\OneDrive\Documents\GitHub\smarterp4\UmadP4Helper\obj\Debug\umadp4helper.dll
+C:\Users\rafae\helpfulp4\umadp4helper\bin\Debug\umadp4helper.deps.json
+C:\Users\rafae\helpfulp4\umadp4helper\bin\Debug\umadp4helper.dll
+C:\Users\rafae\helpfulp4\umadp4helper\obj\Debug\umadp4helper.csproj.AssemblyReference.cache
+C:\Users\rafae\helpfulp4\umadp4helper\obj\Debug\umadp4helper.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\rafae\helpfulp4\umadp4helper\obj\Debug\umadp4helper.AssemblyInfoInputs.cache
+C:\Users\rafae\helpfulp4\umadp4helper\obj\Debug\umadp4helper.AssemblyInfo.cs
+C:\Users\rafae\helpfulp4\umadp4helper\obj\Debug\umadp4helper.csproj.CoreCompileInputs.cache
+C:\Users\rafae\helpfulp4\umadp4helper\obj\Debug\umadp4helper.sourcelink.json
+C:\Users\rafae\helpfulp4\umadp4helper\obj\Debug\umadp4helper.dll
