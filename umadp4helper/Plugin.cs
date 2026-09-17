@@ -1,11 +1,15 @@
-﻿using Dalamud.Game.Command;
+using Dalamud.Game.Command;
 using Dalamud.Game.DutyState;
+using Dalamud.Hooking;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using System.IO;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using SamplePlugin.Windows;
+using System.Numerics;
 
 namespace SamplePlugin;
 
@@ -22,70 +26,150 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDutyState DutyState { get; private set; } = null!;
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
+    [PluginService] internal static IGameInteropProvider GameInteropProvider { get; private set; } = null!;
 
     private const string CommandName = "/p4helper";
+    private const string ShotCallerCommandName = "/p4shotcaller";
 
     public Configuration Configuration { get; init; }
 
     public readonly WindowSystem WindowSystem = new("UMAD P4 Helper");
     private ConfigWindow ConfigWindow { get; init; }
     private MainWindow MainWindow { get; init; }
+    private ShotCallerWindow ShotCallerWindow { get; init; }
+
+    private Hook<ActionEffectHandler.Delegates.Receive>? actionEffectHook;
 
     public Plugin()
     {
-        Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration =
+            PluginInterface.GetPluginConfig() as Configuration ??
+            new Configuration();
 
-        // You might normally want to embed resources and load them from the manifest stream
-        var goatImagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
+        var goatImagePath = Path.Combine(
+            PluginInterface.AssemblyLocation.Directory?.FullName!,
+            "goat.png");
 
         ConfigWindow = new ConfigWindow(this);
         MainWindow = new MainWindow(this, goatImagePath);
 
+        // ShotCallerWindow now requires the Plugin instance.
+        ShotCallerWindow = new ShotCallerWindow(this);
+
         WindowSystem.AddWindow(ConfigWindow);
         WindowSystem.AddWindow(MainWindow);
+        WindowSystem.AddWindow(ShotCallerWindow);
 
-        CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
+        unsafe
         {
-            HelpMessage = "Open the UMAD P4 Helper."
-        });
+            actionEffectHook =
+                GameInteropProvider.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
+                    ActionEffectHandler.MemberFunctionPointers.Receive,
+                    OnReceiveActionEffect);
 
-        // Tell the UI system that we want our windows to be drawn through the window system
+            actionEffectHook.Enable();
+        }
+
+        CommandManager.AddHandler(
+            CommandName,
+            new CommandInfo(OnCommand)
+            {
+                HelpMessage = "Open the UMAD P4 Helper."
+            });
+
+        CommandManager.AddHandler(
+            ShotCallerCommandName,
+            new CommandInfo(OnShotCallerCommand)
+            {
+                HelpMessage = "Toggle the optional UMAD P4 Shot Caller window."
+            });
+
         PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
-
-        // This adds a button to the plugin installer entry of this plugin which allows
-        // toggling the display status of the configuration ui
         PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUi;
-
-        // Adds another button doing the same but for the main ui of the plugin
         PluginInterface.UiBuilder.OpenMainUi += ToggleMainUi;
 
-        // Add a simple message to the log with level set to information
-        // Use /xllog to open the log window in-game
-        // Example Output: 00:57:54.959 | INF | [SamplePlugin] ===A cool log message from Sample Plugin===
         Log.Information($"{PluginInterface.Manifest.Name} loaded.");
     }
 
     public void Dispose()
     {
-        // Unregister all actions to not leak anything during disposal of plugin
         PluginInterface.UiBuilder.Draw -= WindowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfigUi;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleMainUi;
-        
+
+        actionEffectHook?.Dispose();
+
         WindowSystem.RemoveAllWindows();
 
+        ShotCallerWindow.Dispose();
         ConfigWindow.Dispose();
         MainWindow.Dispose();
 
+        CommandManager.RemoveHandler(ShotCallerCommandName);
         CommandManager.RemoveHandler(CommandName);
+    }
+
+    private unsafe void OnReceiveActionEffect(
+        uint casterEntityId,
+        Character* casterPtr,
+        Vector3* targetPos,
+        ActionEffectHandler.Header* header,
+        ActionEffectHandler.TargetEffects* effects,
+        GameObjectId* targetEntityIds)
+    {
+        if (header is not null)
+        {
+            MainWindow.ProcessActionEffect(
+                header->ActionId,
+                casterEntityId);
+        }
+
+        actionEffectHook?.Original(
+            casterEntityId,
+            casterPtr,
+            targetPos,
+            header,
+            effects,
+            targetEntityIds);
     }
 
     private void OnCommand(string command, string args)
     {
-        // In response to the slash command, toggle the display status of our main ui
         MainWindow.Toggle();
     }
-    
-    public void ToggleConfigUi() => ConfigWindow.Toggle();
-    public void ToggleMainUi() => MainWindow.Toggle();
+
+    private void OnShotCallerCommand(string command, string args)
+    {
+        if (!Configuration.ShotCallerEnabled)
+        {
+            Log.Information(
+                "Shot Caller is disabled. Enable it in UMAD P4 Helper settings.");
+            return;
+        }
+
+        ShotCallerWindow.Toggle();
+    }
+
+    public void ToggleConfigUi()
+    {
+        ConfigWindow.Toggle();
+    }
+
+    public void ToggleMainUi()
+    {
+        MainWindow.Toggle();
+    }
+
+    public void OpenShotCallerUi()
+    {
+        if (Configuration.ShotCallerEnabled)
+        {
+            ShotCallerWindow.IsOpen = true;
+        }
+    }
+
+    public void CloseShotCallerUi()
+    {
+        ShotCallerWindow.IsOpen = false;
+    }
 }
