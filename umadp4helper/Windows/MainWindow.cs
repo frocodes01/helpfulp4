@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
@@ -51,6 +51,27 @@ public class MainWindow : Window, IDisposable
         Water
     }
 
+    private enum AntilightShape
+    {
+        Unknown,
+        Triangle,
+        Circle
+    }
+
+    private enum AntilightLife
+    {
+        Unknown,
+        Live,
+        Die
+    }
+
+    private enum AntilightSide
+    {
+        Unknown,
+        BossLeft,
+        BossRight
+    }
+
     // ============================================================
     // AUTO MODE
     // ============================================================
@@ -62,6 +83,37 @@ public class MainWindow : Window, IDisposable
     private const uint AccelStatusId = 5546;
     private const uint TsunamiStatusId = 5548;
     private const uint InfernoStatusId = 5547;
+
+    // Mana Charge action IDs.
+    // BA9F / BA98 are treated as REAL based on the trigger reference being tested.
+    // BAA1 / BA9B are treated as FAKE. Debug output keeps the raw IDs visible.
+    private const uint ThunderRealActionId = 0xBA9F;
+    private const uint ThunderFakeActionId = 0xBAA1;
+    private const uint BlizzardRealActionId = 0xBA98;
+    private const uint BlizzardFakeActionId = 0xBA9B;
+
+    // P4 Mana gate.
+    // BAA4 is the actual Mana Charge action.
+    // Ignore every Thunder/Blizzard before it, then capture the first
+    // Thunder and first Blizzard after it.
+    private const uint ManaChargeActionId = 0xBAA4;
+
+    // Flood of Naught / Antilight action IDs.
+    private const uint FloodRealCircleLeftActionId = 0xC392;
+    private const uint FloodRealTriangleLeftActionId = 0xC393;
+    private const uint FloodFakeTriangleLeftActionId = 0xC3A1;
+    private const uint FloodFakeCircleLeftActionId = 0xC3A2;
+
+    // Antilight local-player statuses.
+    private const uint AllaganFieldStatusId = 454;
+    private const uint WhiteWound1StatusId = 4887;
+    private const uint BlackWound1StatusId = 4888;
+    private const uint WhiteWound2StatusId = 5541;
+    private const uint BlackWound2StatusId = 5542;
+    private const uint BeyondDeath1StatusId = 5464;
+    private const uint BeyondDeath2StatusId = 1382;
+
+    private static readonly TimeSpan AntilightWoundMemory = TimeSpan.FromSeconds(90);
 
     // Embedded playback icons. These are built into the plugin DLL so the
     // custom-repo ZIP does not need to ship loose PNG files.
@@ -94,8 +146,31 @@ public class MainWindow : Window, IDisposable
     private DateTime latestNeoTellAtUtc = DateTime.MinValue;
     private DateTime latestChaosTellAtUtc = DateTime.MinValue;
     private bool autoWasEnabled;
+    private bool antilightWasEnabled;
     private string autoLastEvent = "Waiting for P4...";
     private string autoActiveDebuffs = "No watched debuffs detected.";
+
+    private bool p4ManaArmed;
+    private uint p4ManaArmActionId;
+
+    private uint lastThunderActionId;
+    private uint lastBlizzardActionId;
+
+    // Debug-only: raw Kefka cast currently/most recently seen after Mana Charge.
+    private uint lastManaCastActionId;
+    private string lastManaCastName = "waiting";
+
+    private uint lastFloodActionId;
+    private string floodSignalSource = "waiting";
+
+    private Truth floodTruth = Truth.Unknown;
+    private AntilightShape floodLeftShape = AntilightShape.Unknown;
+    private AntilightShape floodRightShape = AntilightShape.Unknown;
+
+    private AntilightShape rememberedWoundShape = AntilightShape.Unknown;
+    private uint rememberedWoundStatusId;
+    private DateTime rememberedWoundAtUtc = DateTime.MinValue;
+    private uint currentAntilightDebuffStatusId;
 
     // ============================================================
     // CURRENT STATE
@@ -103,6 +178,7 @@ public class MainWindow : Window, IDisposable
 
     // View
     private bool expandedView;
+    private bool barebonesView;
 
     // Neo #1
     private Truth neo1Truth = Truth.Unknown;
@@ -301,6 +377,33 @@ public class MainWindow : Window, IDisposable
 
     public override void Draw()
     {
+        if (barebonesView)
+        {
+            SizeConstraints = new WindowSizeConstraints
+            {
+                MinimumSize = new Vector2(400, 150),
+                MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
+            };
+
+            DrawBarebones();
+
+            // Barebones intentionally has no visible controls.
+            // Right-click anywhere in the window to return to the normal UI.
+            if (ImGui.IsWindowHovered() &&
+                ImGui.IsMouseClicked(ImGuiMouseButton.Right))
+            {
+                barebonesView = false;
+            }
+
+            return;
+        }
+
+        SizeConstraints = new WindowSizeConstraints
+        {
+            MinimumSize = new Vector2(390, 400),
+            MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
+        };
+
         DrawTopBar();
 
         ImGui.Spacing();
@@ -377,14 +480,40 @@ public class MainWindow : Window, IDisposable
         ImGui.Spacing();
         ImGui.Text("View:");
         ImGui.SameLine();
-        if (ImGui.RadioButton("Compact", !expandedView))
+
+        if (ImGui.RadioButton(
+            "Compact",
+            !expandedView && !barebonesView))
         {
             expandedView = false;
+            barebonesView = false;
         }
+
         ImGui.SameLine();
-        if (ImGui.RadioButton("Expanded", expandedView))
+
+        if (ImGui.RadioButton(
+            "Expanded",
+            expandedView && !barebonesView))
         {
             expandedView = true;
+            barebonesView = false;
+        }
+
+        ImGui.SameLine();
+
+        if (ImGui.RadioButton(
+            "Barebones",
+            barebonesView))
+        {
+            barebonesView = true;
+
+            // Barebones has no input controls, so it is Auto-only.
+            if (!plugin.Configuration.AutoMode)
+            {
+                plugin.Configuration.AutoMode = true;
+                plugin.Configuration.Save();
+                BeginAutoMode();
+            }
         }
 
         ImGui.Spacing();
@@ -415,6 +544,16 @@ public class MainWindow : Window, IDisposable
         {
             ImGui.TextDisabled($"Auto: {autoLastEvent}");
             ImGui.TextDisabled($"Detected: {autoActiveDebuffs}");
+
+            if (plugin.Configuration.AutoDebug)
+            {
+                ImGui.TextDisabled($"Mana debug: {GetManaDebugText()}");
+
+                if (plugin.Configuration.AntilightEnabled)
+                {
+                    ImGui.TextDisabled($"Flood debug: {GetFloodDebugText()}");
+                }
+            }
         }
     }
 
@@ -441,12 +580,46 @@ public class MainWindow : Window, IDisposable
         latestChaosTellIndex = 0;
         latestNeoTellAtUtc = DateTime.MinValue;
         latestChaosTellAtUtc = DateTime.MinValue;
+        p4ManaArmed = false;
+        p4ManaArmActionId = 0;
+        lastThunderActionId = 0;
+        lastBlizzardActionId = 0;
+        lastManaCastActionId = 0;
+        lastManaCastName = "waiting";
+
+        // Auto detector owns the charge fields while Auto is active.
+        // Resetting the detector must also clear any visible stale charge values.
+        manaChargeLightning = Truth.Unknown;
+        manaChargeIce = Truth.Unknown;
+
         autoLastEvent = "Waiting for P4...";
         autoActiveDebuffs = "No watched debuffs detected.";
     }
 
     private void OnFrameworkUpdate(IFramework framework)
     {
+        var antilightEnabled = plugin.Configuration.AntilightEnabled;
+
+        if (antilightEnabled)
+        {
+            if (!antilightWasEnabled)
+            {
+                ResetAntilightTracking();
+                antilightWasEnabled = true;
+            }
+
+            RefreshAntilightLocalStatuses();
+        }
+        else
+        {
+            if (antilightWasEnabled)
+            {
+                ResetAntilightTracking();
+            }
+
+            antilightWasEnabled = false;
+        }
+
         var enabled = plugin.Configuration.AutoMode;
 
         if (!enabled)
@@ -462,11 +635,13 @@ public class MainWindow : Window, IDisposable
 
         RefreshAutoBossTells();
         RefreshAutoLocalStatuses();
+        RefreshAutoManaCast();
     }
 
     private void OnDutyReset(IDutyStateEventArgs args)
     {
         ResetAutoTracking();
+        ResetAntilightTracking();
 
         if (plugin.Configuration.AutoMode)
         {
@@ -672,6 +847,463 @@ public class MainWindow : Window, IDisposable
         }
     }
 
+    private void RefreshAutoManaCast()
+    {
+        if (!plugin.Configuration.AutoMode ||
+            !p4ManaArmed)
+        {
+            return;
+        }
+
+        foreach (var gameObject in Plugin.ObjectTable)
+        {
+            try
+            {
+                if (gameObject is not IBattleChara kefka ||
+                    !kefka.IsValid() ||
+                    !kefka.IsCasting)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(
+                        kefka.Name.TextValue,
+                        "Kefka",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var castActionId = kefka.CastActionId;
+
+                lastManaCastActionId = castActionId;
+                lastManaCastName =
+                    castActionId switch
+                    {
+                        ThunderRealActionId or ThunderFakeActionId =>
+                            "Thrumming Thunder III",
+                        BlizzardRealActionId or BlizzardFakeActionId =>
+                            "Blizzard III Blowout",
+                        _ => $"other {FormatActionId(castActionId)}"
+                    };
+
+                // Populate the charge as soon as the relevant cast begins rather
+                // than waiting for the ActionEffect at cast completion.
+                CaptureArmedManaAction(castActionId);
+            }
+            catch
+            {
+                // Duty Recorder can expose transient objects. Skip safely.
+                continue;
+            }
+        }
+    }
+
+    public void ProcessActionEffect(uint actionId, uint casterEntityId)
+    {
+        if (plugin.Configuration.AutoMode)
+        {
+            // Do not let earlier Kefka Thunder/Blizzard casts populate Mana.
+            if (!p4ManaArmed && actionId == ManaChargeActionId)
+            {
+                p4ManaArmed = true;
+                p4ManaArmActionId = actionId;
+
+                // Start the actual Mana section clean.
+                lastThunderActionId = 0;
+                lastBlizzardActionId = 0;
+                lastManaCastActionId = 0;
+                lastManaCastName = "waiting";
+                manaChargeLightning = Truth.Unknown;
+                manaChargeIce = Truth.Unknown;
+
+                autoLastEvent =
+                    $"Mana capture armed by Mana Charge {FormatActionId(actionId)}.";
+            }
+            else if (p4ManaArmed)
+            {
+                CaptureArmedManaAction(actionId);
+            }
+        }
+
+        if (!plugin.Configuration.AntilightEnabled)
+        {
+            return;
+        }
+
+        ApplyFloodSignal(actionId, "ABILITY");
+    }
+
+    private void CaptureArmedManaAction(uint actionId)
+    {
+        if (lastThunderActionId == 0 &&
+            actionId is ThunderRealActionId or ThunderFakeActionId)
+        {
+            lastThunderActionId = actionId;
+            manaChargeLightning =
+                actionId == ThunderRealActionId
+                    ? Truth.Real
+                    : Truth.Fake;
+
+            autoLastEvent =
+                $"Mana Charge #1 Thunder {FormatActionId(actionId)} -> {TruthToString(manaChargeLightning)}.";
+        }
+
+        if (lastBlizzardActionId == 0 &&
+            actionId is BlizzardRealActionId or BlizzardFakeActionId)
+        {
+            lastBlizzardActionId = actionId;
+            manaChargeIce =
+                actionId == BlizzardRealActionId
+                    ? Truth.Real
+                    : Truth.Fake;
+
+            autoLastEvent =
+                $"Mana Charge #2 Blizzard {FormatActionId(actionId)} -> {TruthToString(manaChargeIce)}.";
+        }
+    }
+
+    private void ApplyFloodSignal(
+        uint actionId,
+        string source)
+    {
+        if (actionId is not
+            (FloodRealCircleLeftActionId or
+             FloodRealTriangleLeftActionId or
+             FloodFakeTriangleLeftActionId or
+             FloodFakeCircleLeftActionId))
+        {
+            return;
+        }
+
+        lastFloodActionId = actionId;
+        floodSignalSource = source;
+
+        floodTruth =
+            actionId is FloodRealCircleLeftActionId or FloodRealTriangleLeftActionId
+                ? Truth.Real
+                : Truth.Fake;
+
+        if (actionId is FloodRealCircleLeftActionId or FloodFakeCircleLeftActionId)
+        {
+            floodLeftShape = AntilightShape.Circle;
+            floodRightShape = AntilightShape.Triangle;
+        }
+        else
+        {
+            floodLeftShape = AntilightShape.Triangle;
+            floodRightShape = AntilightShape.Circle;
+        }
+
+        autoLastEvent =
+            $"Flood {FormatActionId(actionId)} -> {TruthToString(floodTruth)} " +
+            $"({source}); left {ShapeName(floodLeftShape)}, right {ShapeName(floodRightShape)}.";
+    }
+
+    private void RefreshAntilightLocalStatuses()
+    {
+        // Read the exact Flood variant from Neo Exdeath's live cast bar.
+        // Duty Recorder can expose transient ObjectTable entries while replaying,
+        // so never let one stale/invalid object break the per-frame update loop.
+        foreach (var gameObject in Plugin.ObjectTable)
+        {
+            try
+            {
+                if (gameObject is not IBattleChara neo)
+                {
+                    continue;
+                }
+
+                if (!neo.IsValid() ||
+                    !neo.IsCasting)
+                {
+                    continue;
+                }
+
+                var neoName = neo.Name.TextValue;
+
+                if (!string.Equals(
+                        neoName,
+                        "Neo Exdeath",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                ApplyFloodSignal(
+                    neo.CastActionId,
+                    $"CAST {neo.CurrentCastTime:0.0}/{neo.TotalCastTime:0.0}s");
+            }
+            catch
+            {
+                // A replay object can disappear between ObjectTable enumeration
+                // and property access. Skip it and keep scanning the remaining objects.
+                continue;
+            }
+        }
+
+        var now = DateTime.UtcNow;
+        var currentResolveStatusId = 0u;
+
+        if (Plugin.ObjectTable.LocalPlayer is IBattleChara battleChara)
+        {
+            foreach (var status in battleChara.StatusList)
+            {
+                var woundShape = GetEffectiveWoundShape(status.StatusId);
+
+                if (woundShape != AntilightShape.Unknown)
+                {
+                    rememberedWoundShape = woundShape;
+                    rememberedWoundStatusId = status.StatusId;
+                    rememberedWoundAtUtc = now;
+                }
+
+                if (status.StatusId is
+                    AllaganFieldStatusId or
+                    BeyondDeath1StatusId or
+                    BeyondDeath2StatusId)
+                {
+                    currentResolveStatusId = status.StatusId;
+                }
+            }
+        }
+
+        currentAntilightDebuffStatusId = currentResolveStatusId;
+
+        if (rememberedWoundShape != AntilightShape.Unknown &&
+            now - rememberedWoundAtUtc > AntilightWoundMemory)
+        {
+            rememberedWoundShape = AntilightShape.Unknown;
+            rememberedWoundStatusId = 0;
+            rememberedWoundAtUtc = DateTime.MinValue;
+        }
+    }
+
+    private void ResetAntilightTracking()
+    {
+        lastFloodActionId = 0;
+        floodSignalSource = "waiting";
+        floodTruth = Truth.Unknown;
+        floodLeftShape = AntilightShape.Unknown;
+        floodRightShape = AntilightShape.Unknown;
+        rememberedWoundShape = AntilightShape.Unknown;
+        rememberedWoundStatusId = 0;
+        rememberedWoundAtUtc = DateTime.MinValue;
+        currentAntilightDebuffStatusId = 0;
+    }
+
+    private static AntilightShape GetEffectiveWoundShape(uint statusId)
+    {
+        // Use the player's ACTUAL wound status for the shape.
+        // White Wound = Circle
+        // Black Wound = Triangle
+        //
+        // Do not use the reference helper's "effective wound" remapping here;
+        // that was the source of 15A6 (Black Wound 2) being displayed as Circle.
+        return statusId switch
+        {
+            WhiteWound1StatusId or WhiteWound2StatusId => AntilightShape.Circle,
+            BlackWound1StatusId or BlackWound2StatusId => AntilightShape.Triangle,
+            _ => AntilightShape.Unknown
+        };
+    }
+
+    private AntilightLife GetAntilightLife()
+    {
+        return currentAntilightDebuffStatusId switch
+        {
+            AllaganFieldStatusId when floodTruth == Truth.Real => AntilightLife.Live,
+            AllaganFieldStatusId when floodTruth == Truth.Fake => AntilightLife.Die,
+            BeyondDeath1StatusId => AntilightLife.Live,
+            BeyondDeath2StatusId => AntilightLife.Die,
+            _ => AntilightLife.Unknown
+        };
+    }
+
+    private AntilightShape GetAntilightDestinationShape()
+    {
+        if (rememberedWoundShape == AntilightShape.Unknown ||
+            floodTruth == Truth.Unknown ||
+            currentAntilightDebuffStatusId == 0)
+        {
+            return AntilightShape.Unknown;
+        }
+
+        // Antilight resolution rules:
+        //
+        // ALLAGAN FIELD
+        //   REAL -> swap shape
+        //   FAKE -> stay on your wound shape
+        //
+        // BEYOND DEATH
+        //   REAL -> stay on your wound shape
+        //   FAKE -> swap shape
+        //
+        // This intentionally does NOT use one universal REAL/FAKE rule.
+        if (currentAntilightDebuffStatusId == AllaganFieldStatusId)
+        {
+            return floodTruth == Truth.Real
+                ? OppositeShape(rememberedWoundShape)
+                : rememberedWoundShape;
+        }
+
+        if (currentAntilightDebuffStatusId is
+            BeyondDeath1StatusId or
+            BeyondDeath2StatusId)
+        {
+            return floodTruth == Truth.Real
+                ? rememberedWoundShape
+                : OppositeShape(rememberedWoundShape);
+        }
+
+        return AntilightShape.Unknown;
+    }
+
+    private AntilightSide GetAntilightDestinationSide()
+    {
+        var destination = GetAntilightDestinationShape();
+
+        if (destination == AntilightShape.Unknown)
+        {
+            return AntilightSide.Unknown;
+        }
+
+        if (destination == floodLeftShape)
+        {
+            return AntilightSide.BossLeft;
+        }
+
+        if (destination == floodRightShape)
+        {
+            return AntilightSide.BossRight;
+        }
+
+        return AntilightSide.Unknown;
+    }
+
+    private static AntilightShape OppositeShape(AntilightShape shape)
+    {
+        return shape switch
+        {
+            AntilightShape.Triangle => AntilightShape.Circle,
+            AntilightShape.Circle => AntilightShape.Triangle,
+            _ => AntilightShape.Unknown
+        };
+    }
+
+    private static string ShapeName(AntilightShape shape)
+    {
+        return shape switch
+        {
+            AntilightShape.Triangle => "TRIANGLE",
+            AntilightShape.Circle => "CIRCLE",
+            _ => "?"
+        };
+    }
+
+    private static string ShapeText(AntilightShape shape)
+    {
+        return shape switch
+        {
+            AntilightShape.Triangle => "△ TRIANGLE",
+            AntilightShape.Circle => "○ CIRCLE",
+            _ => "?"
+        };
+    }
+
+    private static string LifeText(AntilightLife life)
+    {
+        return life switch
+        {
+            AntilightLife.Live => "LIVE",
+            AntilightLife.Die => "DIE",
+            _ => "?"
+        };
+    }
+
+    private static string SideText(AntilightSide side)
+    {
+        // Flood orientation is stored from Neo Exdeath's perspective.
+        // Convert it to the player's POV while facing Neo:
+        // Neo's left is the player's RIGHT, Neo's right is the player's LEFT.
+        return side switch
+        {
+            AntilightSide.BossLeft => "RIGHT",
+            AntilightSide.BossRight => "LEFT",
+            _ => "?"
+        };
+    }
+
+    private static string FormatActionId(uint actionId)
+    {
+        return actionId == 0
+            ? "----"
+            : actionId.ToString("X4");
+    }
+
+    private static string FormatStatusId(uint statusId)
+    {
+        return statusId == 0
+            ? "----"
+            : statusId.ToString("X");
+    }
+
+    private static string GetWoundStatusName(uint statusId)
+    {
+        return statusId switch
+        {
+            WhiteWound1StatusId or WhiteWound2StatusId => "WHITE WOUND",
+            BlackWound1StatusId or BlackWound2StatusId => "BLACK WOUND",
+            _ => "?"
+        };
+    }
+
+    private string GetManaDebugText()
+    {
+        var arm =
+            p4ManaArmed
+                ? $"ARMED by Mana Charge {FormatActionId(p4ManaArmActionId)}"
+                : $"DISARMED (waiting for Mana Charge {FormatActionId(ManaChargeActionId)})";
+
+        var thunder =
+            lastThunderActionId == 0
+                ? "waiting"
+                : $"{FormatActionId(lastThunderActionId)} -> {TruthToString(manaChargeLightning)}";
+
+        var blizzard =
+            lastBlizzardActionId == 0
+                ? "waiting"
+                : $"{FormatActionId(lastBlizzardActionId)} -> {TruthToString(manaChargeIce)}";
+
+        var liveCast =
+            lastManaCastActionId == 0
+                ? "Cast waiting"
+                : $"Cast {FormatActionId(lastManaCastActionId)} ({lastManaCastName})";
+
+        return $"{arm} | {liveCast} | Thunder {thunder} | Blizzard {blizzard}";
+    }
+
+    private string GetFloodDebugText()
+    {
+        var flood =
+            lastFloodActionId == 0
+                ? "waiting"
+                : $"{FormatActionId(lastFloodActionId)} -> {TruthToString(floodTruth)}";
+
+        var resolveName =
+            currentAntilightDebuffStatusId switch
+            {
+                AllaganFieldStatusId => "ALLAGAN FIELD",
+                BeyondDeath1StatusId or BeyondDeath2StatusId => "BEYOND DEATH",
+                _ => "?"
+            };
+
+        return
+            $"{flood} [{floodSignalSource}] | Wound {FormatStatusId(rememberedWoundStatusId)} " +
+            $"({GetWoundStatusName(rememberedWoundStatusId)} / {ShapeName(rememberedWoundShape)}) | " +
+            $"Resolve {FormatStatusId(currentAntilightDebuffStatusId)} ({resolveName})";
+    }
+
     private bool HasFreshNeoTell(DateTime now)
     {
         return latestNeoTellIndex is 1 or 2 &&
@@ -824,6 +1456,97 @@ public class MainWindow : Window, IDisposable
     // ============================================================
     // RESPONSIVE LAYOUT
     // ============================================================
+
+    private void DrawBarebones()
+    {
+        // Seven lines, no cards, no icons, no buttons.
+        ImGui.Text($"ANTILIGHT: {GetBarebonesAntilight()}");
+
+        ImGui.Text(
+            $"1ST: {GetPersonalResolveForDuration(Duration.Short)} | " +
+            $"{GetBarebonesAccel(AccelTiming.Short)}");
+
+        ImGui.Text(
+            $"GAZE 1: {GetPersonalGazeCallout(neo1Truth, neo1Gaze)} | " +
+            $"THUNDER: {TruthToString(manaChargeLightning)}");
+
+        ImGui.Text(
+            $"INFERNO: {GetBarebonesChaosResolve(GetInfernoCallout())}");
+
+        ImGui.Text(
+            $"2ND: {GetPersonalResolveForDuration(Duration.Long)} | " +
+            $"{GetBarebonesAccel(AccelTiming.Long)} | " +
+            $"BLIZZARD: {TruthToString(manaChargeIce)}");
+
+        ImGui.Text(
+            $"GAZE 2: {GetPersonalGazeCallout(neo2Truth, neo2Gaze)}");
+
+        var lightningResult =
+            ResolveMana(
+                manaChargeLightning,
+                manaReleaseLightning);
+
+        var blizzardResult =
+            ResolveMana(
+                manaChargeIce,
+                manaReleaseIce);
+
+        ImGui.Text(
+            $"TSUNAMI: {GetBarebonesChaosResolve(GetTsunamiCallout())} | " +
+            $"MANA: {GetFinalManaCallout(lightningResult, blizzardResult)}");
+    }
+
+    private string GetBarebonesAntilight()
+    {
+        if (!plugin.Configuration.AntilightEnabled)
+        {
+            return "DISABLED";
+        }
+
+        var destination =
+            GetAntilightDestinationShape();
+
+        var life =
+            GetAntilightLife();
+
+        if (destination == AntilightShape.Unknown ||
+            life == AntilightLife.Unknown)
+        {
+            return "WAITING";
+        }
+
+        return
+            $"{ShapeText(destination)} — {LifeText(life)}";
+    }
+
+    private string GetBarebonesAccel(
+        AccelTiming timing)
+    {
+        var value =
+            GetAccelCalloutForTiming(timing);
+
+        return value switch
+        {
+            "No accel this set" => "NO ACCEL",
+            "1st STILLNESS" => "STILLNESS",
+            "1st MOTION" => "MOTION",
+            "2nd STILLNESS" => "STILLNESS",
+            "2nd MOTION" => "MOTION",
+            "CHECK ACCEL INPUTS" => "CHECK ACCEL",
+            _ => value.ToUpperInvariant()
+        };
+    }
+
+    private static string GetBarebonesChaosResolve(
+        string resolution)
+    {
+        return resolution switch
+        {
+            "STAY" => "DONUT / STAY MID",
+            "SPREAD" => "BAIT MID → CHARIOT",
+            _ => "?"
+        };
+    }
 
     private void DrawTwoColumnLayout()
     {
@@ -1465,6 +2188,11 @@ public class MainWindow : Window, IDisposable
         // Dense playback layout: the same shared state is used by Manual and Auto.
         // Cards intentionally avoid child windows so there are no per-card scrollbars.
 
+        if (expandedView && plugin.Configuration.AntilightEnabled)
+        {
+            DrawAntilightCard();
+        }
+
         DrawCompactPairCard(
             "PlaybackNeo1",
             "NEO #1",
@@ -1572,6 +2300,48 @@ public class MainWindow : Window, IDisposable
                 ImGui.SetWindowFontScale(1.15f);
                 ImGui.Text($"Final Movement  {manaCallout} + {tsunamiCallout}");
                 ImGui.SetWindowFontScale(1.00f);
+            });
+    }
+
+    private void DrawAntilightCard()
+    {
+        DrawCompactCard(
+            "PlaybackAntilight",
+            "ANTILIGHT",
+            () =>
+            {
+                var life = GetAntilightLife();
+                var destination = GetAntilightDestinationShape();
+
+                ImGui.Text($"Wound: {ShapeText(rememberedWoundShape)}");
+                ImGui.Text($"Flood: {TruthToString(floodTruth)}");
+
+                ImGui.Spacing();
+
+                ImGui.SetWindowFontScale(1.15f);
+
+                if (destination == AntilightShape.Unknown ||
+                    life == AntilightLife.Unknown)
+                {
+                    ImGui.Text("WAITING FOR ANTILIGHT DATA");
+                }
+                else
+                {
+                    ImGui.Text(
+                        $"GO {ShapeText(destination)} — {LifeText(life)}");
+                }
+
+                ImGui.SetWindowFontScale(1.00f);
+
+                if (plugin.Configuration.AutoDebug)
+                {
+                    ImGui.Spacing();
+                    ImGui.TextDisabled(
+                        $"Debug: Flood {FormatActionId(lastFloodActionId)} " +
+                        $"{TruthToString(floodTruth)} [{floodSignalSource}] | " +
+                        $"Wound {FormatStatusId(rememberedWoundStatusId)} | " +
+                        $"Resolve {FormatStatusId(currentAntilightDebuffStatusId)}");
+                }
             });
     }
 
@@ -2269,6 +3039,8 @@ public class MainWindow : Window, IDisposable
 
         manaReleaseIce =
             Truth.Unknown;
+
+        ResetAntilightTracking();
 
         if (clearUndo)
         {
