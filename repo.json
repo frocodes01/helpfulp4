@@ -4,7 +4,7 @@
     "Name": "Helpfulp4",
     "InternalName": "umadp4helper",
     "AssemblyVersion": "0.0.0.0",
-    "TestingAssemblyVersion": "0.0.0.9",
+    "TestingAssemblyVersion": "0.0.1.0",
     "IsTestingExclusive": true,
     "Description": "DMU P4 assignment helper with manual and experimental automatic mechanic detection.",
     "Punchline": "DMU P4 assignment helper.",
