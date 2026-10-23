@@ -1,13 +1,5 @@
 # UMAD P4 Helper
 
-An in-game Dalamud helper for **FFXIV UMAD Phase 4**.
-
-This plugin recreates and streamlines the decision-making flow of the WTFDIG P4 helper inside Final Fantasy XIV, with a focus on quick manual inputs and clear text playback.
-
-Yep — the repo install section should explicitly tell people to add the custom repository JSON before trying to find the plugin.
-
-I’d update the README/install description to something like:
-
 ## Installation
 
 This plugin is installed through Dalamud using a custom plugin repository.
